@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{{meta.title}}{{#if heading}} — {{heading}}{{/if}}</title>
+  <meta name="description" content="{{description}}">
+  <meta property="og:site_name" content="{{meta.title}}">
+  <meta property="og:title" content="{{meta.title}}{{#if heading}} — {{heading}}{{/if}}">
+  <meta property="og:description" content="{{description}}">
+  <meta property="og:url" content="{{site}}{{path}}">
+  <meta property="og:image" content="{{site}}{{image}}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="{{site}}{{path}}">
+  <link rel="alternate" type="application/rss+xml" title="{{meta.title}}" href="{{root}}feed.xml">
+  <link rel="stylesheet" href="{{root}}style.css">
+</head>
+<body>
+  <a class="skip-link" href="#poem">Skip to content</a>
+  <div class="frame">
+    <header class="site-header">
+      <h1><a href="{{#if root}}{{root}}{{else}}./{{/if}}">{{meta.title}}</a></h1>
+      <nav class="primary" aria-label="Main">
+        <a href="{{#if root}}{{root}}{{else}}./{{/if}}"{{#if (eq current "now")}} aria-current="page"{{/if}}>now</a>
+        <a href="{{root}}about.html"{{#if (eq current "about")}} aria-current="page"{{/if}}>about</a>
+        <a href="{{root}}feed.xml">RSS</a>
+      </nav>
+      <nav id="days" aria-label="Archive">
+        {{#each months}}
+        <div class="month-days">
+          {{#each days}}
+          <a href="{{../../root}}{{day}}/"{{#if (eq ../../current day)}} aria-current="page"{{/if}}>{{date}}</a>
+          {{/each}}
+        </div>
+        {{/each}}
+      </nav>
+    </header>
+    <main id="poem" tabindex="-1">
+      {{{body}}}
+    </main>
+  </div>
+  <script>
+    // Scroll only the archive; primary links stay visible on mobile.
+    const a = document.querySelector("#days [aria-current]");
+    if (a) {
+      const h = a.closest("header"), n = document.querySelector("#days");
+      if (matchMedia("(max-width: 719px)").matches) n.scrollLeft += a.getBoundingClientRect().left - n.getBoundingClientRect().left - 16;
+      else h.scrollTop += a.getBoundingClientRect().top - h.getBoundingClientRect().top - h.clientHeight / 2;
+    }
+  </script>
+</body>
+</html>

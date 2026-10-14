@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>{{meta.title}}</title>
+    <link>{{site}}</link>
+    <atom:link href="{{site}}feed.xml" rel="self" type="application/rss+xml"/>
+    <description>{{meta.tagline}}</description>
+    <language>en</language>
+    <lastBuildDate>{{built}}</lastBuildDate>
+    {{#each days}}
+    <item>
+      <title>{{date}}</title>
+      <link>{{../site}}{{day}}/</link>
+      <guid isPermaLink="true">{{../site}}{{day}}/</guid>
+      <pubDate>{{sealed}}</pubDate>
+      <description><![CDATA[{{#each lines}}<p>{{did line}}</p>{{/each}}{{#if wagered}}<p><em>{{> wagered amount=wagered}}</em></p>{{/if}}]]></description>
+    </item>
+    {{/each}}
+  </channel>
+</rss>

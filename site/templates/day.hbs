@@ -1,0 +1,33 @@
+{{#if intro}}<p class="intro">{{intro}}</p>{{/if}}
+<header class="day-header">
+  <h2>{{date}}</h2>
+  {{#if live}}
+  {{#if updated}}<p class="updated">Updated <time datetime="{{updated.at}}">{{updated.label}}</time> · {{updated.zone}}</p>{{/if}}
+  {{/if}}
+  {{#if wagered}}<p class="wagered">{{> wagered amount=wagered live=live}}</p>{{/if}}
+</header>
+<ol id="lines">
+  {{#each lines}}
+  <li data-status="{{status}}"{{#if was}} class="turning"{{/if}}>
+    <div class="gutter">
+      <time datetime="{{at}}"{{#if moment}} title="{{#if asked}}Opened{{else}}Closed{{/if}} {{moment.full}}, {{../zone}}{{#if moment.earlier}}, before this day; recorded here when it was answered{{/if}}"{{/if}}>{{label}}</time>
+      {{#if family}}
+      <span class="family" title="{{#if family.single}}One market{{else}}{{family.size}} similar markets{{/if}}{{#if family.volume}}, {{family.volume}} USD traded{{/if}}">
+        {{~#if family.cost}}<span class="cost">{{family.cost}}</span>{{/if~}}
+      </span>
+      {{/if}}
+    </div>
+    <div class="sentence">
+      {{#if was}}<s class="was">{{was}}</s>{{/if}}
+      <a class="line" href="{{url}}" rel="noopener">{{did line}}</a>
+    </div>
+  </li>
+  {{else}}
+  <li class="empty">{{#if available}}Nothing has been asked or answered yet today.{{else}}Today's poem is waiting for its first update. You can read a sealed day in the archive.{{/if}}</li>
+  {{/each}}
+</ol>
+{{#if lines.length}}
+<footer class="day-colophon">
+  <p class="selection">Selected from this day's record: {{asked.shown}} of {{asked.total}} asked, {{answered.shown}} of {{answered.total}} answered.</p>
+</footer>
+{{/if}}

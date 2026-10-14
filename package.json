@@ -1,0 +1,28 @@
+{
+  "name": "will-did",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A daily poem drawn from prediction markets, without the odds.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "fetch": "node dist/capture/fetch.js",
+    "test": "node --test \"dist/**/*.test.js\"",
+    "serve": "python3 -m http.server 8000 -d public",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "rerender": "node dist/maintenance/rerender.js",
+    "repair-archive": "node dist/maintenance/repair.js",
+    "backfill": "node dist/capture/backfill.js",
+    "render": "node dist/publish/render.js",
+    "prune": "node dist/maintenance/prune.js"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "@types/node": "^22.10.0",
+    "handlebars": "^4.7.10",
+    "typescript": "^5.6.0"
+  }
+}

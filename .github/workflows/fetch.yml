@@ -1,0 +1,74 @@
+name: fetch
+
+on:
+  schedule:
+    - cron: "17 * * * *"   # hourly, off the top of the hour
+  workflow_dispatch:
+
+permissions:
+  contents: write   # commit archive/
+  pages: write      # publish the rendered site
+  id-token: write   # required by deploy-pages
+
+concurrency:
+  group: fetch
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      # Working state (open snapshot, today, recent settlements) lives in the
+      # Actions cache, not git. Each run restores the newest and saves its own.
+      # If it's ever evicted, the next run starts fresh like a first fetch; the
+      # archive is unaffected.
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: data
+          key: state-${{ github.run_id }}
+          restore-keys: state-
+      - run: npm run fetch
+        env:
+          SOURCES: "polymarket"
+          LOOKBACK_HOURS: "48"
+          MIN_VOLUME: "0"
+      # The site's absolute URL (a custom domain once one is set), for the feed
+      # and preview tags.
+      - id: pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      # Renders public/ and writes each newly sealed day's lines to archive/,
+      # once; then drops the working data those days no longer need.
+      - run: npm run render
+        env:
+          SITE_URL: ${{ steps.pages.outputs.base_url }}
+      - run: npm run prune
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: data
+          key: state-${{ github.run_id }}
+      # The archive is the only thing committed: one small file per day, never rewritten.
+      - name: Commit archive
+        run: |
+          git config user.name "will-did bot"
+          git config user.email "will-did@users.noreply.github.com"
+          git add archive
+          if git diff --cached --quiet; then echo "nothing newly sealed"; exit 0; fi
+          git commit -m "archive: $(ls archive | tail -1 | sed 's/.html//')"
+          git push
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: public
+      - id: deploy
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
