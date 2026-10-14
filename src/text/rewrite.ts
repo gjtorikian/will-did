@@ -179,22 +179,43 @@ function conjugate({ subject, modifiers, verb, rest }: Clause, result: Result): 
   // "Will X not air?" settled No means it did air
   const negated = modifiers.includes("not");
   const not = (result === "yes") === negated ? " not" : "";
-  const adverbs = modifiers.filter((a) => a !== "not");
+  // "ever" needs a negation too: "did not ever reach", but "did reach"
+  let adverbs = modifiers.filter((a) => a !== "not" && (not || a !== "ever"));
   const tail = rest.length ? ` ${rest.join(" ")}` : "";
+  let head = verb;
   if (verb === "be" && adverbs.includes("still")) {
     // "Will X still be Y" → "X did (not) remain Y"
-    const others = adverbs.filter((a) => a !== "still");
-    return cap(`${subject} did${not}${others.length ? ` ${others.join(" ")}` : ""} remain${tail}.`);
-  }
-  const adv = adverbs.length ? ` ${adverbs.join(" ")}` : "";
-  if (verb === "be") {
+    adverbs = adverbs.filter((a) => a !== "still");
+    head = "remain";
+  } else if (verb === "be") {
     // passive ("be said", "be publicly exhibited") → get; predicative ("be #1", "be above $4,000") → end up
     const next = rest.find((t) => !/ly$/i.test(clean(t)));
-    const passive = next !== undefined && isParticiple(clean(next));
-    return cap(`${subject} did${not}${adv} ${passive ? "get" : "end up"}${tail}.`);
+    head = next !== undefined && isParticiple(clean(next)) ? "get" : "end up";
   }
-  return cap(`${subject} did${not}${adv} ${verb}${tail}.`);
+  return statement(subject, not, `${adverbs.length ? `${adverbs.join(" ")} ` : ""}${head}${tail}`);
 }
+
+/**
+ * `subject` did / did not `predicate`, with its polarity settled. "any" and
+ * its compounds are licensed by a question or a negation, never by the
+ * statement itself:
+ *
+ *   Will Trump pardon anyone?      (yes) → Trump did pardon someone.
+ *   Will any AI model reach 1530?  (yes) → Some AI model did reach 1530.
+ *                                  (no)  → No AI model did reach 1530.   (not "Any AI model did not…")
+ *
+ * Quoted mentions keep their wording: Trump did say "anything".
+ */
+function statement(subject: string, not: string, predicate: string): string {
+  const lead = not ? /^any(?:one|body|thing)?\b/i.exec(subject) : null;
+  if (lead) return cap(`${NONE[lead[0].toLowerCase()]}${subject.slice(lead[0].length)} did ${predicate}.`);
+  const line = `${subject} did${not} ${predicate}.`;
+  return cap(not ? line : line.replace(QUOTED_OR_ANY, (m, any?: string, suffix = "") => (any ? `${any[0] === "A" ? "S" : "s"}ome${suffix}` : m)));
+}
+
+const NONE: Record<string, string> = { any: "no", anyone: "no one", anybody: "nobody", anything: "nothing" };
+/** A quoted mention (left alone), or "any" / "anyone" / "anybody" / "anything" / "anywhere". */
+const QUOTED_OR_ANY = /"[^"]*"|“[^”]*”|(?<=^|\s)'[^']*'(?=$|[\s,.])|\b(any)(one|body|thing|where)?\b/gi;
 
 /** A settled market's line. The declarative form ("Bitcoin did not reach…")
  *  when the sentence can be turned safely; otherwise, and always under
@@ -219,7 +240,7 @@ export function rewrite(question: string, result: Result, form: Form = "declarat
   if (there) {
     if (/\bnot\b/i.test(unquoted)) return fallback(question, result, answer);
     const [thing, tail] = splitTail(there[1]);
-    return cap(`${thing} did${result === "yes" ? "" : " not"} happen${tail ? ` ${tail}` : ""}.`);
+    return statement(thing, result === "yes" ? "" : " not", `happen${tail ? ` ${tail}` : ""}`);
   }
 
   const clause = parseClause(body, unquoted);

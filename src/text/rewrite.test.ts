@@ -49,6 +49,24 @@ const cases: Array<[string, "yes" | "no", string]> = [
   ["Will there be a change in leadership at the Fed by June?", "no", "A change in leadership at the Fed did not happen by June."],
   ["Will the man who shot the senator be convicted?", "yes", "The man who shot the senator did get convicted."],
   ["Will Netflix stock close above $1,000 on Friday?", "yes", "Netflix stock did close above $1,000 on Friday."],
+  // "any" is licensed by a question or a negation, never by the statement itself
+  ["Will Trump pardon anyone by October 31?", "yes", "Trump did pardon someone by October 31."],
+  ["Will Trump pardon anyone by October 31?", "no", "Trump did not pardon anyone by October 31."],
+  ["Will the Catholic Church publicly excommunicate anyone else in 2026?", "yes", "The Catholic Church did publicly excommunicate someone else in 2026."],
+  ["Will any AI model reach a Chatbot Arena score of 1530 by December 31?", "yes", "Some AI model did reach a Chatbot Arena score of 1530 by December 31."],
+  ["Will any AI model reach a Chatbot Arena score of 1530 by December 31?", "no", "No AI model did reach a Chatbot Arena score of 1530 by December 31."],
+  ["Will any other model be the best AI model on October 5?", "yes", "Some other model did end up the best AI model on October 5."],
+  ["Will any presidential candidate win outright in the first round?", "no", "No presidential candidate did win outright in the first round."],
+  ["Will anyone be arrested by Friday?", "no", "No one did get arrested by Friday."],
+  ["Will Bitcoin trade above $100,000 at any point in October?", "yes", "Bitcoin did trade above $100,000 at some point in October."],
+  ["Will there be any arrests by Friday?", "yes", "Some arrests did happen by Friday."],
+  ["Will there be any arrests by Friday?", "no", "No arrests did happen by Friday."],
+  ['Will Trump say "anything" during the speech?', "yes", 'Trump did say "anything" during the speech.'],
+  ["Will Trump say 'anyone' during the speech?", "yes", "Trump did say 'anyone' during the speech."],
+  ["Will Netflix air Anyway anymore?", "no", "Netflix did not air Anyway anymore."],
+  // so is "ever"
+  ["Will Bitcoin ever reach $1,000,000?", "yes", "Bitcoin did reach $1,000,000."],
+  ["Will Bitcoin ever reach $1,000,000?", "no", "Bitcoin did not ever reach $1,000,000."],
 ];
 
 for (const [q, r, expected] of cases) {
