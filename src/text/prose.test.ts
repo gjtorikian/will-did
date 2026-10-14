@@ -4,7 +4,7 @@ import { humanize, straightQuotes, stripMarkdown } from "./prose.js";
 import { words, ordinal } from "./numbers.js";
 
 const cases: Array<[string, string]> = [
-  ['Will "AI" be said 50+ times on the next All-In Podcast?', 'Will "AI" be said fifty or more times on the next All-In Podcast?'],
+  ['Will "AI" be said 50+ times on the next All-In Podcast?', 'Will "AI" be said fifty (or more) times on the next All-In Podcast?'],
   ["Will an artwork sell for $150 million by December 31?", "Will an artwork sell for one hundred fifty million dollars by December thirty-first?"],
   ['Will Lichtenstein "Green Head" sell for at least $3.5m at auction?', 'Will Lichtenstein "Green Head" sell for at least three and a half million dollars at auction?'],
   ["Will Warhol \"Flowers\" sell for at least $600k+ at auction?", "Will Warhol \"Flowers\" sell for at least six hundred thousand dollars (or more) at auction?"],
@@ -25,7 +25,7 @@ const cases: Array<[string, string]> = [
   ["Will MrBeast hit 500M subscribers in 2026?", "Will MrBeast hit five hundred million subscribers in twenty twenty-six?"],
   ["Will the Knicks win 3-1?", "Will the Knicks win three to one?"],
   ["Will the fight start at 22:00?", "Will the fight start at ten in the evening?"],
-  ['Will "Veto" be said 5+ times during Episode 41 of Big Brother?', 'Will "Veto" be said five or more times during Episode forty-one of Big Brother?'],
+  ['Will "Veto" be said 5+ times during Episode 41 of Big Brother?', 'Will "Veto" be said five (or more) times during Episode forty-one of Big Brother?'],
   // months spelled out, but only as dates
   ["Will Donald Trump make 140-159 Truth Social posts the week of Oct 4, 2026?", "Will Donald Trump make one hundred forty to one hundred fifty-nine Truth Social posts the week of October fourth, twenty twenty-six?"],
   ["Will it close above 5,000 on Sept. 30?", "Will it close above five thousand on September thirtieth?"],
@@ -44,7 +44,7 @@ const cases: Array<[string, string]> = [
   ["Will the highest temperature in Atlanta be between 72-73°F on October 11?", "Will the highest temperature in Atlanta be between seventy-two and seventy-three degrees on October eleventh?"],
   ["Will the maximum temperature be 66-67° on Oct 5, 2026?", "Will the maximum temperature be sixty-six to sixty-seven degrees on October fifth, twenty twenty-six?"],
   ["Will Bitcoin reach $92,000 October 5-11?", "Will Bitcoin reach ninety-two thousand dollars October fifth to eleventh?"],
-  ["Will the next Claude Haiku model (4.6+) be released?", "Will the next Claude Haiku model (four point six or more) be released?"],
+  ["Will the next Claude Haiku model (4.6+) be released?", "Will the next Claude Haiku model (four point six (or more)) be released?"],
   ["Will CDU finish 3rd in the 2026 Berlin state election?", "Will CDU finish third in the twenty twenty-six Berlin state election?"],
   ["Will the 30Y U.S. Treasury yield be above 5%?", "Will the thirty-year U.S. Treasury yield be above five percent?"],
   ["Will the Nasdaq-100 close above 25,000?", "Will the Nasdaq-one hundred close above twenty-five thousand?"],
@@ -88,6 +88,19 @@ test("straightQuotes", () => {
 test("comparison symbols and ranges across months", () => {
   assert.equal(humanize("MicroStrategy announces >1000 BTC purchase September 29-October 5?"), "MicroStrategy announces greater than one thousand BTC purchase September twenty-ninth to October fifth?");
   assert.equal(humanize("Will Palantir (PLTR) close at <$180 on Friday?"), "Will Palantir (PLTR) close at less than one hundred eighty dollars on Friday?");
-  assert.equal(humanize("Will the September 2026 unemployment rate be ≤3.8%?"), "Will the September twenty twenty-six unemployment rate be less than or equal to three point eight percent?");
-  assert.equal(humanize("Will a dozen eggs cost ≥$2.70 in September?"), "Will a dozen eggs cost greater than or equal to two point seven dollars in September?");
+  assert.equal(humanize("Will the September 2026 unemployment rate be ≤3.8%?"), "Will the September twenty twenty-six unemployment rate be less than (or equal to) three point eight percent?");
+  assert.equal(humanize("Will a dozen eggs cost ≥$2.70 in September?"), "Will a dozen eggs cost greater than (or equal to) two point seven dollars in September?");
+});
+
+test("durations with a plus", () => {
+  assert.equal(humanize("Will the Tesla Roadster fly for 1s+?"), "Will the Tesla Roadster fly for one second (or more)?");
+  assert.equal(humanize("Will the stream last 30min+?"), "Will the stream last thirty minutes (or more)?");
+  assert.equal(humanize("Will the outage last 2h+?"), "Will the outage last two hours (or more)?");
+});
+
+test("qualifiers are always in parentheses, once", () => {
+  assert.equal(humanize("Will the Green Party win 40% or more of the vote?"), "Will the Green Party win forty percent (or more) of the vote?");
+  assert.equal(humanize("Will inflation be 2% or less?"), "Will inflation be two percent (or less)?");
+  assert.equal(humanize("Will it be greater than or equal to 5?"), "Will it be greater than (or equal to) five?");
+  assert.equal(humanize("Will 50+ people (or more) attend?"), "Will fifty (or more) people (or more) attend?", "an existing (or more) isn't wrapped again");
 });

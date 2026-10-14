@@ -46,8 +46,8 @@ const WORDING: Rule[] = [
   [/(?<!\b(?:the|of|in)\s)\bWeek of\b/g, "in the week of"],
   [new RegExp(`\\b(${MONTH})\\s+(\\d{1,2})\\s+((?:19|20)\\d\\d)\\b`, "g"), "$1 $2, $3"],
   // comparison symbols before a number or amount: ">1000", "<$180", "≤0.4%"
-  [/(?:≥|>=)\s?(?=[$\d])/g, "greater than or equal to "],
-  [/(?:≤|<=)\s?(?=[$\d])/g, "less than or equal to "],
+  [/(?:≥|>=)\s?(?=[$\d])/g, "greater than (or equal to) "],
+  [/(?:≤|<=)\s?(?=[$\d])/g, "less than (or equal to) "],
   [/>\s?(?=[$\d])/g, "greater than "],
   [/<\s?(?=[$\d])/g, "less than "],
   // "# of tweets", "# tweets", "#1"
@@ -90,8 +90,17 @@ const UNITS: Rule[] = [
   [/\b(\d+(?:\.\d+)?)\s?bps\b/gi, (_, n) => `${decimal(Number(n))} basis points`],
   [/(\d+(?:\.\d+)?)\s?%/g, (_, n) => `${decimal(Number(n))} percent`],
   [/(\d+(?:\.\d+)?)\s?°(?:\s?[FC]\b)?/g, (_, n) => `${decimal(Number(n))} degrees`],
-  // "20+" → "twenty or more"
-  [/\b(\d[\d,]*(?:\.\d+)?)\+/g, (_, n) => `${decimal(Number(n.replace(/,/g, "")))} or more`],
+  // durations with a "+": "1s+" → "one second or more", "30min+", "2h+". Only
+  // with the "+": a bare "1990s" or "80s" is a decade, not seconds.
+  [
+    /\b(\d+(?:\.\d+)?)\s?(s|secs?|seconds?|mins?|minutes?|h|hrs?|hours?)\+/gi,
+    (_, n: string, u: string) => {
+      const unit = /^s/i.test(u) ? "second" : /^m/i.test(u) ? "minute" : "hour";
+      return `${decimal(Number(n))} ${unit}${Number(n) === 1 ? "" : "s"} (or more)`;
+    },
+  ],
+  // "20+" → "twenty (or more)"
+  [/\b(\d[\d,]*(?:\.\d+)?)\+/g, (_, n) => `${decimal(Number(n.replace(/,/g, "")))} (or more)`],
   // bare 100k / 2M / 1.5B followers, views, tweets — or at the end of a clause: "less than 8m?"
   [
     /(?<![\w$.])(\d[\d,]*(?:\.\d+)?)\s?(k|m|b)\b(?=\s+[a-z]|\s*[?.!,;:)]|\s*$)/gi,
@@ -156,7 +165,14 @@ const LEFTOVERS: Rule[] = [
   ],
 ];
 
-const RULES: Rule[] = [...WORDING, ...MONEY_AND_TIME, ...UNITS, ...DATES_AND_RANGES, ...LEFTOVERS];
+/** The qualifiers on a bound are always set in parentheses, whether a rule
+ *  wrote them or the market did: "(or more)", "(or less)", "(or equal to)". */
+const QUALIFIERS: Rule[] = [
+  [/(?<!\()\bor (more|less)\b(?!\))/gi, (_, w: string) => `(or ${w.toLowerCase()})`],
+  [/\b((?:greater|less|more|fewer) than) or equal to\b/gi, "$1 (or equal to)"],
+];
+
+const RULES: Rule[] = [...WORDING, ...MONEY_AND_TIME, ...UNITS, ...DATES_AND_RANGES, ...LEFTOVERS, ...QUALIFIERS];
 
 export function humanize(input: string): string {
   return RULES.reduce<string>(
