@@ -42,7 +42,10 @@ export async function getJSON<T>(
     } catch (err) {
       const retryable = err instanceof HttpError ? err.retryable : true;
       if (!retryable || attempt >= retries) throw err;
-      await sleep(wait ?? Math.min(30_000, 1000 * 2 ** attempt) + Math.random() * 500);
+      // Never shorter than our own backoff: a short Retry-After can otherwise
+      // spend every retry within seconds of a rate limit.
+      const backoff = Math.min(30_000, 1000 * 2 ** attempt);
+      await sleep(Math.max(wait ?? 0, backoff) + Math.random() * 500);
     }
   }
 }

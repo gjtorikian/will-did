@@ -1,4 +1,4 @@
-import { getJSON, toISO, HttpError } from "./http.js";
+import { getJSON, throttle, toISO, HttpError } from "./http.js";
 import type { Fetched, Result } from "../types.js";
 
 const BASE = "https://gamma-api.polymarket.com";
@@ -11,6 +11,14 @@ const MAX_PAGES = Number(process.env.PM_MAX_PAGES ?? 5000);
 // own. Gamma silently ignores exclude_tag_id, so listings ask for tags inline
 // (include_tag=true) and sports markets are filtered here.
 const SPORTS_TAG = "1";
+// Gamma rate-limits hard from shared IPs like GitHub's runners. One gate for
+// every request this process makes, so the open and closed listings (and
+// rechecks) can't burst past it together.
+const gate = throttle(Number(process.env.PM_GAP_MS ?? 1000));
+const get = async <T>(url: string) => {
+  await gate();
+  return getJSON<T>(url);
+};
 
 /** Only the Gamma fields we touch. Everything else is ignored. */
 interface GammaMarket {
@@ -83,7 +91,7 @@ async function fetchKeyset(params: string): Promise<GammaMarket[]> {
   let cursor = "";
   for (let i = 0; i < MAX_PAGES; i++) {
     const after = cursor ? `&after_cursor=${encodeURIComponent(cursor)}` : "";
-    const res = await getJSON<KeysetPage>(`${BASE}/markets/keyset?${params}&limit=${PAGE}${after}`);
+    const res = await get<KeysetPage>(`${BASE}/markets/keyset?${params}&limit=${PAGE}${after}`);
     out.push(...(res.markets ?? []));
     if (!res.next_cursor || !res.markets?.length) return out;
     cursor = res.next_cursor;
@@ -124,7 +132,7 @@ export async function fetchClosedSince(since: number): Promise<Fetched[]> {
 export async function fetchOne(id: string): Promise<Fetched | null> {
   const gammaId = id.replace(/^pm:/, "");
   try {
-    const m = await getJSON<GammaMarket>(`${BASE}/markets/${gammaId}?include_tag=true`);
+    const m = await get<GammaMarket>(`${BASE}/markets/${gammaId}?include_tag=true`);
     return m?.id ? toFetched(m) : null;
   } catch (err) {
     if (err instanceof HttpError && err.status === 404) return null;

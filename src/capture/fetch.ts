@@ -19,7 +19,17 @@ run({
   tz: process.env.DAY_TZ ?? "America/New_York",
   form: (process.env.FORM as "declarative" | "question" | undefined) ?? "declarative",
   answer: (process.env.ANSWER as "yesno" | "did" | undefined) ?? "yesno",
-}).catch((err) => {
+})
+  .then((report) => {
+    // Every source failed: exit non-zero so the workflow stops before render
+    // and deploy, and the live site keeps its last good version rather than
+    // publishing an empty today. One source of several failing carries on.
+    if (report.failed.length && report.failed.length === Object.keys(adapters).length) {
+      console.error(`every source failed (${report.failed.join(", ")}); not publishing this run`);
+      process.exit(1);
+    }
+  })
+  .catch((err) => {
   console.error(err);
   process.exit(1);
 });
