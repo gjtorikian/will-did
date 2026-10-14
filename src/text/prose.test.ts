@@ -7,9 +7,9 @@ const cases: Array<[string, string]> = [
   ['Will "AI" be said 50+ times on the next All-In Podcast?', 'Will "AI" be said fifty or more times on the next All-In Podcast?'],
   ["Will an artwork sell for $150 million by December 31?", "Will an artwork sell for one hundred fifty million dollars by December thirty-first?"],
   ['Will Lichtenstein "Green Head" sell for at least $3.5m at auction?', 'Will Lichtenstein "Green Head" sell for at least three and a half million dollars at auction?'],
-  ["Will Warhol \"Flowers\" sell for at least $600k+ at auction?", "Will Warhol \"Flowers\" sell for at least six hundred thousand dollars or more at auction?"],
+  ["Will Warhol \"Flowers\" sell for at least $600k+ at auction?", "Will Warhol \"Flowers\" sell for at least six hundred thousand dollars (or more) at auction?"],
   ["Will Pablo Picasso be #1 in global fine art auction turnover for 2026?", "Will Pablo Picasso be number one in global fine art auction turnover for twenty twenty-six?"],
-  ["Elon Musk # tweets October 6 - October 13, 2026?", "Elon Musk number of tweets October sixth - October thirteenth, twenty twenty-six?"],
+  ["Elon Musk # tweets October 6 - October 13, 2026?", "Elon Musk number of tweets October sixth to October thirteenth, twenty twenty-six?"],
   ["# of views of next MrBeast video on week 1?", "number of views of next MrBeast video on week one?"],
   ["Will the Fed cut 25bps in December?", "Will the Fed cut twenty-five basis points in December?"],
   ["Will the high in NYC exceed 70° on Oct 7?", "Will the high in NYC exceed seventy degrees on October seventh?"],
@@ -83,4 +83,11 @@ test("ordinal", () => {
 test("straightQuotes", () => {
   assert.equal(straightQuotes("Will Rashid Johnson’s “Anxious Man” sell for $750k?"), `Will Rashid Johnson's "Anxious Man" sell for $750k?`);
   assert.equal(straightQuotes("Will Trump say ‘tariff’ this week?"), "Will Trump say 'tariff' this week?");
+});
+
+test("comparison symbols and ranges across months", () => {
+  assert.equal(humanize("MicroStrategy announces >1000 BTC purchase September 29-October 5?"), "MicroStrategy announces greater than one thousand BTC purchase September twenty-ninth to October fifth?");
+  assert.equal(humanize("Will Palantir (PLTR) close at <$180 on Friday?"), "Will Palantir (PLTR) close at less than one hundred eighty dollars on Friday?");
+  assert.equal(humanize("Will the September 2026 unemployment rate be ≤3.8%?"), "Will the September twenty twenty-six unemployment rate be less than or equal to three point eight percent?");
+  assert.equal(humanize("Will a dozen eggs cost ≥$2.70 in September?"), "Will a dozen eggs cost greater than or equal to two point seven dollars in September?");
 });

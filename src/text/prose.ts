@@ -45,6 +45,11 @@ const WORDING: Rule[] = [
   // a bare "Week of October 5 2026" wants its preposition and the year its comma
   [/(?<!\b(?:the|of|in)\s)\bWeek of\b/g, "in the week of"],
   [new RegExp(`\\b(${MONTH})\\s+(\\d{1,2})\\s+((?:19|20)\\d\\d)\\b`, "g"), "$1 $2, $3"],
+  // comparison symbols before a number or amount: ">1000", "<$180", "≤0.4%"
+  [/(?:≥|>=)\s?(?=[$\d])/g, "greater than or equal to "],
+  [/(?:≤|<=)\s?(?=[$\d])/g, "less than or equal to "],
+  [/>\s?(?=[$\d])/g, "greater than "],
+  [/<\s?(?=[$\d])/g, "less than "],
   // "# of tweets", "# tweets", "#1"
   [/#\s*of\s+/g, "number of "],
   [/#\s*(\d+)\b/g, (_, n) => `number ${words(Number(n))}`],
@@ -96,6 +101,11 @@ const UNITS: Rule[] = [
 
 /** Dates and ranges: days after a month name, then numeric ranges. */
 const DATES_AND_RANGES: Rule[] = [
+  // ranges across months: September 29-October 5 → September twenty-ninth to October fifth
+  [
+    new RegExp(`\\b(${MONTH_OR_ABBR})\\.?\\s+(\\d{1,2})\\s?[-–]\\s?(${MONTH_OR_ABBR})\\.?\\s+(\\d{1,2})\\b`, "g"),
+    (_, m1: string, a: string, m2: string, b: string) => `${m1} ${ordinal(Number(a))} to ${m2} ${ordinal(Number(b))}`,
+  ],
   // day ranges after a month name: October 5-11 → October fifth to eleventh
   [
     new RegExp(`\\b(${MONTH_OR_ABBR})\\.?\\s+(\\d{1,2})\\s?[-–]\\s?(\\d{1,2})\\b`, "g"),
