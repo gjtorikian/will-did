@@ -28,6 +28,8 @@ const cases: Array<[string, "yes" | "no", string]> = [
   ["Will there be a government shutdown on October 1?", "yes", "A government shutdown did happen on October 1."],
   ["Will Taylor Swift and Travis Kelce get married in 2026?", "yes", "Taylor Swift and Travis Kelce did get married in 2026."],
   ["Will the Lakers be eliminated in the first round?", "yes", "The Lakers did get eliminated in the first round."],
+  ["Will the French Socialist primary be won outright in the first round?", "yes", "Was the French Socialist primary won outright in the first round? Yes."],
+  ["Will the summit be held in Riyadh by June?", "no", "Was the summit held in Riyadh by June? No."],
   ["Will the US be in a recession in 2026?", "no", "The US did not end up in a recession in 2026."],
   ["Bitcoin Up or Down - October 6, 3PM ET", "no", "Bitcoin did go down, October 6, 3PM ET."],
   ["Bitcoin Up or Down - October 6, 3PM ET", "yes", "Bitcoin did go up, October 6, 3PM ET."],

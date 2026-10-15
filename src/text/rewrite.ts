@@ -14,6 +14,7 @@ import type { Answer, Form, Result } from "../types.js";
  *   Will Bitcoin reach $150,000 by December 31?   (yes) → Bitcoin did reach $150,000 by December 31.
  *                                                  (no)  → Bitcoin did not reach $150,000 by December 31.
  *   Will the Lakers be eliminated in round one?    (yes) → The Lakers did get eliminated in round one.
+ *   Will the primary be won outright?              (yes) → Was the primary won outright? Yes.
  *   Will Picasso be #1 in auction turnover?        (no)  → Picasso did not end up #1 in auction turnover.
  *   Will there be a ceasefire by June 30?          (no)  → A ceasefire did not happen by June 30.
  *   Ethereum above $4,000 on October 10?           →  Will Ethereum be above $4,000 on October 10?
@@ -168,6 +169,9 @@ function parseClause(body: string, unquoted: string): Clause | null {
   const negatives = (unquoted.match(/\bnot\b/gi) ?? []).length;
   if (negatives && (negatives !== 1 || !clause.modifiers.includes("not"))) return null;
   if (clause.verb === "have" && clause.rest[0] && isParticiple(clean(clause.rest[0]))) return null;
+  // A passive whose participle the get-passive won't take ("be won", "be
+  // held"): "the primary did get won" isn't English; the question form is.
+  if (clause.verb === "be" && NO_GET.has(participle(clause.rest) ?? "")) return null;
   // A second finite verb often means the first candidate was a noun, or
   // that this is a compound clause. Leave ambiguous structures intact.
   if (clause.verb !== "be" && clause.rest.some((t) => clean(t) === "be") && !clause.rest.some((t) => /^(?:to|that)$/i.test(t))) return null;
@@ -189,8 +193,7 @@ function conjugate({ subject, modifiers, verb, rest }: Clause, result: Result): 
     head = "remain";
   } else if (verb === "be") {
     // passive ("be said", "be publicly exhibited") → get; predicative ("be #1", "be above $4,000") → end up
-    const next = rest.find((t) => !/ly$/i.test(clean(t)));
-    head = next !== undefined && isParticiple(clean(next)) ? "get" : "end up";
+    head = participle(rest) !== undefined ? "get" : "end up";
   }
   return statement(subject, not, `${adverbs.length ? `${adverbs.join(" ")} ` : ""}${head}${tail}`);
 }
@@ -394,6 +397,20 @@ const PARTICIPLES = new Set([
 function isParticiple(w: string): boolean {
   return PARTICIPLES.has(w) || /[a-z]{2,}ed$/.test(w);
 }
+
+/** The participle of a passive "be …": the first word after the verb, past
+ *  any adverb ("be publicly exhibited"), when it is one. */
+function participle(rest: string[]): string | undefined {
+  const next = rest.find((t) => !/ly$/i.test(clean(t)));
+  if (next === undefined) return undefined;
+  const w = clean(next);
+  return isParticiple(w) ? w : undefined;
+}
+
+/** Participles the get-passive won't take. "The Lakers did get eliminated"
+ *  reads; "the primary did get won" and "the summit did get held" don't, so
+ *  those questions settle in the question form instead. */
+const NO_GET = new Set(["won", "lost", "held", "seen", "known"]);
 
 const IRREGULAR_BASES = [
   "be", "have", "do", "go", "get", "make", "take", "say", "see", "come", "give", "find", "tell", "become", "leave",
