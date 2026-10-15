@@ -11,7 +11,7 @@
 <body class="talk">
   <main id="market" class="vote">
     <header class="talk-header">
-      <h1>{{#if site}}<a href="{{site}}">{{meta.title}}</a>{{else}}{{meta.title}}{{/if}}</h1>
+      <h1>{{#if site}}<a href="{{site}}">{{did meta.title}}</a>{{else}}{{did meta.title}}{{/if}}</h1>
     </header>
     <div class="sentence{{#if tally.resolved}} turning{{/if}}" id="sentence">
       {{#if tally.resolved}}<s class="was">{{tally.question}}</s>{{/if}}
