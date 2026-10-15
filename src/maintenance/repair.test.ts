@@ -55,8 +55,22 @@ test("archive repair dry run leaves files intact and a second apply is a no-op",
   await writeFile(join(dir, "days", `${poem.day}.json`), JSON.stringify(day));
   // three lines change: two grammar corrections (one restoring an answer), and
   // every line gains its family, which this poem was archived without
-  assert.deepEqual(await repairArchive(dir, archive, true), { days: 1, changed: 3, restored: 1, thinned: 0 });
+  assert.deepEqual(await repairArchive(dir, archive, true), { days: 1, changed: 3, restored: 1, dropped: 0, thinned: 0 });
   assert.equal(await readFile(path, "utf8"), JSON.stringify(poem));
-  assert.deepEqual(await repairArchive(dir, archive), { days: 1, changed: 3, restored: 1, thinned: 0 });
-  assert.deepEqual(await repairArchive(dir, archive), { days: 0, changed: 0, restored: 0, thinned: 0 });
+  assert.deepEqual(await repairArchive(dir, archive), { days: 1, changed: 3, restored: 1, dropped: 0, thinned: 0 });
+  assert.deepEqual(await repairArchive(dir, archive), { days: 0, changed: 0, restored: 0, dropped: 0, thinned: 0 });
+});
+
+test("archive repair drops a line from before the day", () => {
+  // A ladder rung Polymarket closed on September 28 that turned up, and was
+  // filed on October 6, once its scheduled end passed: before the store kept
+  // settlements from sealed days off the page.
+  const rung = {
+    id: "d", status: "no", asked: false, question: "Will the next model be released on October 6?",
+    line: "The next model did not get released on October sixth.", at: "2026-09-28T20:08:17Z", url: "https://example.test/d",
+    family: { size: 1, volume: 10 },
+  };
+  const repaired = repairPoem({ ...poem, lines: [...poem.lines, rung] } as Poem, null, style);
+  assert.deepEqual(repaired.lines.map((l) => l.id), ["a", "b", "c"]);
+  assert.deepEqual(repaired.answered, { shown: 1, total: 200 }, "the total is the day's record and stays");
 });

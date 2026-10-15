@@ -31,8 +31,9 @@ export function archiveNav(days: string[], current: string) {
 /** What day.hbs is filled with. */
 export function dayView(p: Poem, live: boolean, turn?: Turn) {
   // 24-hour, so "13:02" fits the same five-character gutter as "Oct 11". A
-  // line can belong to this day but have happened earlier (a settlement
-  // noticed after midnight); it shows its date instead.
+  // line's moment normally falls on the page's day; one that doesn't (a poem
+  // archived before settlements from sealed days were kept off the page, or a
+  // source clock ahead of ours) shows its date instead.
   const clock = new Intl.DateTimeFormat(LOCALE, { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: p.tz });
   const dateIn = new Intl.DateTimeFormat("en-CA", { timeZone: p.tz }); // YYYY-MM-DD
   const short = new Intl.DateTimeFormat(LOCALE, { month: "short", day: "numeric", timeZone: p.tz });

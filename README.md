@@ -71,7 +71,7 @@ flowchart TD
 1. `pull`: fetch every source in parallel. Each market is judged: kept, excluded (sports, nobody traded, `MIN_VOLUME`, `EXCLUDE`), or dropped because it can't be phrased as a _Will…?_ sentence (still counted, just not kept).
 2. `vanished`: markets open last run and missing now are resolved from the closed listing where possible, carried forward if their source failed, and otherwise set aside for a recheck.
 3. `recheck` / `checked`: look those up one by one. A market the source no longer has is voided; a failed lookup keeps it open until next hour.
-4. `seed`: settlements in the closed listing not yet recorded. This gives the first run a past and recovers anything a missed hour dropped.
+4. `seed`: settlements in the closed listing not yet recorded: anything a missed hour dropped, and on a first run the recent past. All are recorded; only those that settled on a day still open reach a page (see _The record_).
 5. `askedOn`: open markets new this run whose creation falls on a day still open (today, or yesterday until it's sealed). Long-open markets seen for the first time, on a first fetch say, are tracked but don't flood today's page.
 
 ### 3. The text (`src/text/`)
@@ -105,7 +105,9 @@ flowchart TD
 - `data/resolved/`: the final settlements.
 - `data/days/YYYY-MM-DD.json`: each day's `asked`, `answered` and `voided` markets, plus its `runs` heartbeats.
 
-Captures are filed under the day of their own timestamp (creation for asked, settlement for answered) while that day is still open, and under today otherwise. Only then are earlier days sealed. So the first run after midnight finishes yesterday at midnight exactly.
+Captures are filed under the day of their own timestamp (creation for asked, settlement for answered) while that day is still open. Only then are earlier days sealed. So the first run after midnight finishes yesterday at midnight exactly.
+
+A settlement from a day already sealed goes on no page: that day's poem is final, and it didn't happen today. It stays in `data/resolved/`, so the next run knows it. This comes up whenever Polymarket closes a whole ladder the day its event happens (_Will X be released on October 14?_ is answered No the day X ships), weeks before the rungs' scheduled ends: a rung never tracked as open turns up in the closed listing only once its end date passes. `npm run repair-archive` drops such lines from poems sealed before this rule.
 
 ### 5. The site (`src/publish/`)
 

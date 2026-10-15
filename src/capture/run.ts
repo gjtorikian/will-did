@@ -36,6 +36,7 @@ export interface RunReport {
   newlyResolved: number;
   voided: number;
   dropped: number; // couldn't be phrased as Will…?
+  late: number; // settled on a day already sealed: recorded, on no page
   failed: Source[];
   day: DayRef;
 }
@@ -258,8 +259,10 @@ function checked(markets: Market[], results: Array<Fetched | null | undefined>, 
   return { settled: out, dropped };
 }
 
-/** Settlements in the closed listing not yet recorded: a past on the first
- *  run, and anything a missed hour dropped. */
+/** Settlements in the closed listing not yet recorded: anything a missed hour
+ *  dropped, and on a first run the recent past. All go in resolved/, so the
+ *  next run knows them; the store puts on a page only those that settled on
+ *  a day still open. */
 function seed(closed: Map<string, Fetched>, recorded: Set<string>, ctx: Ctx): Market[] {
   return [...closed.values()]
     .filter((f) => f.result && !recorded.has(f.id))
@@ -323,7 +326,7 @@ export async function run(opts: RunOptions): Promise<RunReport> {
   const dropped = new Set([...pulled.dropped, ...found.dropped]).size;
   const failed = [...pulled.failed];
 
-  const { index: next, day } = await write(dataDir, index, all.open, all.resolved, now, {
+  const { index: next, day, late } = await write(dataDir, index, all.open, all.resolved, now, {
     asked,
     answered: all.resolved,
     voided: all.voided,
@@ -333,8 +336,8 @@ export async function run(opts: RunOptions): Promise<RunReport> {
 
   log(
     `open ${next.counts.open} · newly resolved ${all.resolved.length} · voided ${all.voided.length} · dropped ${dropped} · ` +
-    `resolved total ${next.counts.resolved} · ${day.day}: ${day.asked} asked, ${day.answered} answered · ` +
+    `late ${late} · resolved total ${next.counts.resolved} · ${day.day}: ${day.asked} asked, ${day.answered} answered · ` +
     `${((Date.now() - t0) / 1000).toFixed(1)}s`,
   );
-  return { index: next, newlyResolved: all.resolved.length, voided: all.voided.length, dropped, failed, day };
+  return { index: next, newlyResolved: all.resolved.length, voided: all.voided.length, dropped, late, failed, day };
 }

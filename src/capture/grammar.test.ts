@@ -46,7 +46,8 @@ test("a grammar miss is recorded, then recovered by overrides + rerender", async
   const now = new Date("2026-10-06T14:00:00Z");
   const a = fake(
     [f("pm:1", "Will OpenAI IPO before 2027?", "2026-12-31T00:00:00Z")],
-    [f("pm:2", "Will Tesla dethrone Toyota in 2025?", "2025-12-31T00:00:00Z", { closed: true, result: "no", closedAt: "2026-10-05T00:00:00Z" })],
+    // settled this morning, so it's on today's page as well as in the record
+    [f("pm:2", "Will Tesla dethrone Toyota in 2025?", "2025-12-31T00:00:00Z", { closed: true, result: "no", closedAt: "2026-10-06T12:00:00Z" })],
   );
   const r = await run({ dataDir: dir, adapters: { polymarket: a }, now, lookbackHours: 24 * 7, log: () => {} });
   // "IPO" and "dethrone" are unknown verbs: the Will-line is fine (it starts with Will already),

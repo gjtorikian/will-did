@@ -59,6 +59,9 @@ function byMonthDesc(a: Shard, b: Shard): number {
 export interface WriteResult {
   index: Index;
   day: DayRef;
+  /** settlements on no page this run: they fell on a day already sealed (see
+   *  write). They're in resolved/ all the same. */
+  late: number;
 }
 
 export interface Captured {
@@ -184,7 +187,12 @@ export async function write(
   // the market was created, answered or voided when it settled) if that day is
   // still open: today, or yesterday before this run seals it. So the first run
   // after midnight finishes yesterday at midnight exactly, then seals it.
-  // Anything whose day is already sealed, or has no file, lands on today. ---
+  // A settlement from a day already sealed, or from before the record began,
+  // goes on no page: its day's poem is final, and it didn't happen today. It
+  // stays in resolved/, so the next run knows it. (Polymarket closes a whole
+  // ladder the day its event happens, weeks before the rungs' scheduled ends;
+  // a rung never tracked as open turns up in the closed listing only once its
+  // end date passes.) ---
   const today = dayOf(now, captured.tz);
   const files = new Map<string, Day>();
   const load = async (day: string): Promise<Day | null> => {
@@ -193,17 +201,42 @@ export async function write(
     if (d) files.set(day, d);
     return d;
   };
-  const target = async (iso: string | null | undefined): Promise<Day> => {
+  const dayFor = (iso: string | null | undefined): string => {
     const t = iso ? new Date(iso) : null;
-    const day = t && !Number.isNaN(t.getTime()) ? dayOf(t, captured.tz) : today;
-    const d = day < today ? await load(day) : null;
-    return d && !d.sealed ? d : (await load(today))!;
+    return t && !Number.isNaN(t.getTime()) ? dayOf(t, captured.tz) : today;
   };
-  for (const m of captured.asked) mergeById((await target(m.seen)).asked, [m]);
-  for (const m of captured.answered) mergeById((await target(m.resolvedAt)).answered, [m]);
-  for (const m of captured.voided) mergeById((await target(m.resolvedAt)).voided, [m]);
+  /** The still-open day a capture belongs to; null once that day is sealed. */
+  const target = async (iso: string | null | undefined): Promise<Day | null> => {
+    const day = dayFor(iso);
+    if (day >= today) return load(today); // today, or a source clock ahead of ours
+    const d = await load(day);
+    return d && !d.sealed ? d : null;
+  };
+  let late = 0;
+  // askedOn() keeps asked markets to open days already; the fallback is only for form.
+  for (const m of captured.asked) mergeById(((await target(m.seen)) ?? (await load(today)))!.asked, [m]);
+  for (const m of captured.answered) {
+    const d = await target(m.resolvedAt);
+    if (d) mergeById(d.answered, [m]);
+    else late++;
+  }
+  for (const m of captured.voided) {
+    const d = await target(m.resolvedAt);
+    if (d) mergeById(d.voided, [m]);
+    else late++;
+  }
   (await load(today))!.runs.push(captured.run);
+  // Nothing settled before a day stays in its file: today's may still hold
+  // settlements from sealed days, filed before the rule above.
+  const settledOn = (day: string, list: Market[]): Market[] => {
+    const kept = list.filter((m) => dayFor(m.resolvedAt) >= day);
+    late += list.length - kept.length;
+    return kept;
+  };
   for (const [day, d] of files) {
+    if (d.sealed) continue; // only probed; never touched again
+    d.answered = settledOn(day, d.answered);
+    d.voided = settledOn(day, d.voided);
     d.asked.sort((a, b) => (b.closes ?? "").localeCompare(a.closes ?? ""));
     d.answered.sort((a, b) => (b.resolvedAt ?? "").localeCompare(a.resolvedAt ?? ""));
     await writeJSON(join(dir, `days/${day}.json`), d);
@@ -223,5 +256,5 @@ export async function write(
     },
   };
   await writeIndex(dir, index);
-  return { index, day: days.find((x) => x.day === today)! };
+  return { index, day: days.find((x) => x.day === today)!, late };
 }

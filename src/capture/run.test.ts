@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { run, type Adapter } from "./run.js";
@@ -64,6 +64,7 @@ test("two cycles: open → resolved, voided, carried forward, seeded", async () 
   const r1 = await run({ dataDir: dir, adapters: { polymarket: pm1, kalshi: ks1 }, now: h1, log: () => {} });
   assert.equal(r1.index.counts.open, 5);
   assert.equal(r1.index.counts.resolved, 1, "seeded from the closed listing");
+  assert.equal(r1.late, 1, "it settled on Oct 1, a day long gone: recorded, on no page");
   assert.deepEqual(r1.index.open.map((s) => s.month), ["2026-12", "2026-11", "2026-10"], "far future first");
   const seeded = await readShard(dir, r1.index, "resolved", "2026-10");
   assert.equal(seeded[0].line, "The Mets did not make the playoffs.");
@@ -109,8 +110,8 @@ test("two cycles: open → resolved, voided, carried forward, seeded", async () 
   assert.equal(r3.index.counts.resolved, 3, "de-duped on write");
 
   // Days: h1/h2 are both Oct 6 in New York. One day file, growing, unsealed.
-  assert.deepEqual(r3.index.days.map((d) => [d.day, d.asked, d.answered, d.sealed]), [["2026-10-06", 6, 3, false]],
-    "5 asked at h1 + pm:5 at h2; 1 seeded + 2 resolved");
+  assert.deepEqual(r3.index.days.map((d) => [d.day, d.asked, d.answered, d.sealed]), [["2026-10-06", 6, 2, false]],
+    "5 asked at h1 + pm:5 at h2; 2 resolved (the seed settled on Oct 1, so it's on no page)");
   const oct6 = JSON.parse(await readFile(join(dir, "days/2026-10-06.json"), "utf8")) as Day;
   assert.equal(oct6.tz, "America/New_York");
   assert.ok(oct6.asked.every((m) => m.line.startsWith("Will ")), "asked lines are Wills");
@@ -122,7 +123,7 @@ test("two cycles: open → resolved, voided, carried forward, seeded", async () 
   const r4 = await run({ dataDir: dir, adapters: { polymarket: pm3 }, now: h3, log: () => {} });
   assert.deepEqual(r4.index.days.map((d) => [d.day, d.asked, d.answered, d.sealed]), [
     ["2026-10-07", 1, 0, false],
-    ["2026-10-06", 6, 3, true],
+    ["2026-10-06", 6, 2, true],
   ]);
   const oct6b = JSON.parse(await readFile(join(dir, "days/2026-10-06.json"), "utf8")) as Day;
   assert.equal(oct6b.sealed, true);
@@ -166,4 +167,46 @@ test("the first run after midnight finishes yesterday at midnight exactly, then 
   assert.deepEqual(oct7.answered.map((m: { id: string }) => m.id), ["pm:4"], "settled at 00:05, filed under Oct 7");
   assert.equal(oct7.runs.length, 1, "the run's heartbeat belongs to the day it ran");
   assert.equal(r.day.day, "2026-10-07");
+});
+
+test("a settlement from a day already sealed is recorded but on no page", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "will-did-"));
+  const fed = f("pm:1", "Will the Fed cut rates in December?", "2026-12-10T00:00:00Z");
+  const settled = (id: string, at: string) =>
+    f(id, `Will market ${id} happen?`, "2026-10-08T03:59:00Z", { closed: true, result: "yes", closedAt: at, created: "2026-10-01T12:00:00Z" });
+  // 23:17 New York on Oct 6, then 00:17 on Oct 7, which seals Oct 6.
+  await run({ dataDir: dir, adapters: { polymarket: fake([fed], []) }, now: new Date("2026-10-07T03:17:00Z"), log: () => {} });
+  await run({ dataDir: dir, adapters: { polymarket: fake([fed], []) }, now: new Date("2026-10-07T04:17:00Z"), log: () => {} });
+  // 01:17 on Oct 7: the closed listing turns up three settlements never tracked
+  // as open (a ladder closed early; its rungs' scheduled ends just passed): one
+  // on Oct 7, one on Oct 6 (sealed an hour ago), one on Oct 1 (before the record).
+  const listing = [settled("pm:2", "2026-10-07T04:40:00Z"), settled("pm:3", "2026-10-07T03:50:00Z"), settled("pm:4", "2026-10-01T15:00:00Z")];
+  const r = await run({ dataDir: dir, adapters: { polymarket: fake([fed], listing) }, now: new Date("2026-10-07T05:17:00Z"), log: () => {} });
+  assert.equal(r.newlyResolved, 3);
+  assert.equal(r.late, 2);
+  const day = async (d: string) => JSON.parse(await readFile(join(dir, `days/${d}.json`), "utf8")) as Day;
+  assert.deepEqual((await day("2026-10-07")).answered.map((m) => m.id), ["pm:2"], "only the settlement that happened today is on a page");
+  assert.deepEqual((await day("2026-10-06")).answered, [], "a sealed day stays as it was");
+  assert.deepEqual((await readShard(dir, r.index, "resolved", "2026-10")).map((m) => m.id).sort(), ["pm:2", "pm:3", "pm:4"], "all three are in the record");
+  // The next hour, nothing is seeded again.
+  const r2 = await run({ dataDir: dir, adapters: { polymarket: fake([fed], listing) }, now: new Date("2026-10-07T06:17:00Z"), log: () => {} });
+  assert.equal(r2.newlyResolved, 0);
+  assert.equal(r2.late, 0);
+});
+
+test("settlements from sealed days already on today's page are taken off it", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "will-did-"));
+  const a = fake([f("pm:1", "Will the Fed cut rates in December?", "2026-12-10T00:00:00Z")], []);
+  await run({ dataDir: dir, adapters: { polymarket: a }, now: new Date("2026-10-07T14:17:00Z"), log: () => {} });
+  // As a run filed it before: a settlement from Oct 1, on Oct 7's page.
+  const path = join(dir, "days/2026-10-07.json");
+  const today = JSON.parse(await readFile(path, "utf8")) as Day;
+  today.answered.push({
+    id: "pm:old", source: "polymarket", question: "Will it happen?", line: "It did happen.", closes: null, status: "yes",
+    seen: "2026-10-01T12:00:00Z", resolvedAt: "2026-10-01T15:00:00Z", url: "https://example.test/pm:old",
+  });
+  await writeFile(path, JSON.stringify(today));
+  const r = await run({ dataDir: dir, adapters: { polymarket: a }, now: new Date("2026-10-07T15:17:00Z"), log: () => {} });
+  assert.equal(r.late, 1);
+  assert.deepEqual((JSON.parse(await readFile(path, "utf8")) as Day).answered, []);
 });
