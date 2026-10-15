@@ -48,6 +48,8 @@ test("render writes static pages: about, now, a feed and preview images", async 
   assert.match(nowPage, /class="turning"[\s\S]*?<s class="was">Will the Fed cut rates in October\?<\/s>[\s\S]*?The Fed <span class="did">did not<\/span> cut rates in October\./);
   assert.equal(rep.turning, 1);
   assert.equal(home, nowPage, "the existing now URL aliases the poem homepage");
+  assert.match(nowPage, /<li data-id="pm:4" data-status="no" class="turning">/, "each line carries its market id, so the live page can tell new lines from old");
+  assert.match(nowPage, /<script>[\s\S]*"now\.html"[\s\S]*<\/script>/, "the now page polls for a newer copy of itself");
   const { intro } = JSON.parse(await readFile("site/site.json", "utf8")) as { intro: string };
   assert.ok(home.includes(`<p class="intro">${intro}</p>`), "the intro comes from site.json");
   assert.match(home, /<link rel="canonical" href="https:\/\/willdid.test\/">/);
@@ -94,6 +96,7 @@ test("a sealed day is archived once, rendered from the archive after, fed, and i
   const sealedPage = await readFile(join(out, "2026-10-06", "index.html"), "utf8");
   assert.match(sealedPage, /100 USD in trading volume across this poem's underlying markets\./);
   assert.doesNotMatch(sealedPage, /class="turning"/, "nothing is mid-turn on a sealed day");
+  assert.doesNotMatch(sealedPage, /now\.html/, "a sealed day does not poll");
 
   const rss = await readFile(join(out, "feed.xml"), "utf8");
   assert.match(rss, /<title>October 6, 2026<\/title>\s*<link>https:\/\/willdid\.test\/2026-10-06\/<\/link>/);

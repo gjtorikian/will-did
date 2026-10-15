@@ -117,8 +117,10 @@ li.turning s.was {
 li.turning .line { display: block; animation: settle 1.2s ease-out 1.5s both; }
 @keyframes strike { from { color: var(--ink); text-decoration-color: transparent; } }
 @keyframes settle { from { opacity: 0; } }
+/* A line the now page took in since it was opened. */
+#lines > li.arrived:not(.turning) { animation: settle 1.2s ease-out both; }
 @media (prefers-reduced-motion: reduce) {
-  li.turning s.was, li.turning .line { animation: none; }
+  li.turning s.was, li.turning .line, #lines > li.arrived { animation: none; }
 }
 .sr-only {
   position: absolute;

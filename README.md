@@ -113,6 +113,7 @@ Captures are filed under the day of their own timestamp (creation for asked, set
 
 1. `gather`: reads every sealed poem from `archive/`. A day sealed since the last render is composed from `data/` and written to `archive/` now, once.
 2. `compose` (`poem.ts`): chooses a day's lines. Near-duplicates are grouped into families (see _Handling duplicates_), and one member stands for each. Each line records its family's size and combined trading volume.
+3. The now page keeps itself current. Once a minute it asks whether a newer copy has been published (a HEAD request, with a query string so Cloudflare's cached copy is skipped) and, when one has, fetches it and works the new lines into the page in place: new lines fade in, a line that has turned since strikes through, and at midnight the page becomes the new day. Sealed days don't poll. The interval is `EVERY` at the top of the script in `site/templates/day.hbs`.
 
 ### 6. Prune, commit, deploy
 

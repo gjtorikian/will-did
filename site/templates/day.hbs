@@ -8,7 +8,7 @@
 </header>
 <ol id="lines">
   {{#each lines}}
-  <li data-status="{{status}}"{{#if was}} class="turning"{{/if}}>
+  <li data-id="{{id}}" data-status="{{status}}"{{#if was}} class="turning"{{/if}}>
     <div class="gutter">
       <time datetime="{{at}}"{{#if moment}} title="{{#if asked}}Opened{{else}}Closed{{/if}} {{moment.full}}, {{../zone}}{{#if moment.earlier}}, before this day; recorded here when it was answered{{/if}}"{{/if}}>{{label}}</time>
       {{#if family}}
@@ -30,4 +30,95 @@
 <footer class="day-colophon">
   <p class="selection">Selected from this day's record: {{asked.shown}} of {{asked.total}} asked, {{answered.shown}} of {{answered.total}} answered.</p>
 </footer>
+{{/if}}
+{{#if live}}
+<script>
+  // The now page keeps itself current. Every minute it asks whether a newer
+  // copy has been published (a HEAD request: headers, no body) and, when one
+  // has, fetches it and works the new lines into the page without reloading.
+  // The query string takes each request past Cloudflare's cached copy.
+  (() => {
+    const EVERY = 60_000;
+    const page = new URL("now.html", location.href);
+    const fresh = () => { page.search = "?t=" + Date.now(); return page; };
+    let seen = ""; // Last-Modified of the copy on screen; empty until the first fetch
+    let timer, busy = false;
+
+    async function check() {
+      if (seen) {
+        const head = await fetch(fresh(), { method: "HEAD", cache: "no-store" });
+        if (!head.ok || head.headers.get("last-modified") === seen) return;
+      }
+      const res = await fetch(fresh(), { cache: "no-store" });
+      if (!res.ok) return;
+      seen = res.headers.get("last-modified") || "?";
+      apply(new DOMParser().parseFromString(await res.text(), "text/html"));
+    }
+
+    function apply(doc) {
+      const main = document.querySelector("main"), next = doc.querySelector("main");
+      const nav = document.querySelector("#days"), nextNav = doc.querySelector("#days");
+      if (!main || !next || !nav || !nextNav) return;
+      const date = (m) => m.querySelector(".day-header h2")?.textContent;
+      if (date(main) !== date(next)) {
+        // Midnight: the day sealed and a new one began. A new page at the same address.
+        nav.innerHTML = nextNav.innerHTML;
+        main.innerHTML = next.innerHTML;
+        return;
+      }
+      const swap = (sel) => {
+        const a = main.querySelector(sel), b = next.querySelector(sel);
+        if (a && b) { if (a.innerHTML !== b.innerHTML) a.innerHTML = b.innerHTML; }
+        else if (b) main.querySelector("#lines")?.after(document.importNode(b, true)); // the colophon, with a day's first lines
+        else if (a) a.remove();
+      };
+      swap(".day-header");
+      swap(".day-colophon");
+      merge(main.querySelector("#lines"), next.querySelector("#lines"));
+    }
+
+    // Lines already on the page stay put, so one mid-turn keeps its animation.
+    // New lines go in where they fall and fade in; a line that has turned
+    // since is replaced, so it strikes through; lines no longer shown go.
+    function merge(list, next) {
+      if (!list || !next) return;
+      const had = new Map();
+      for (const li of list.children) if (li.dataset.id) had.set(li.dataset.id, li);
+      const turning = (li) => li.classList.contains("turning");
+      const same = (a, b) => a.dataset.status === b.dataset.status && turning(a) === turning(b)
+        && a.querySelector(".sentence")?.textContent === b.querySelector(".sentence")?.textContent;
+      const keep = [];
+      for (const li of next.children) {
+        const prev = had.get(li.dataset.id);
+        if (prev && same(prev, li)) {
+          const g = prev.querySelector(".gutter"), ng = li.querySelector(".gutter"); // the tally moves as markets trade
+          if (g && ng && g.innerHTML !== ng.innerHTML) g.innerHTML = ng.innerHTML;
+          keep.push(prev);
+        } else {
+          const n = document.importNode(li, true);
+          if (!prev) n.classList.add("arrived");
+          keep.push(n);
+        }
+      }
+      const keeping = new Set(keep);
+      let at = list.firstElementChild;
+      for (const li of keep) {
+        while (at && !keeping.has(at)) { const gone = at; at = at.nextElementSibling; gone.remove(); }
+        if (li === at) at = at.nextElementSibling;
+        else list.insertBefore(li, at);
+      }
+      while (at) { const gone = at; at = at.nextElementSibling; gone.remove(); }
+    }
+
+    async function tick() {
+      clearTimeout(timer);
+      if (document.hidden || busy) return; // a hidden tab waits; it catches up when shown
+      busy = true;
+      try { await check(); } catch { /* offline, or a deploy mid-flight: next time */ } finally { busy = false; }
+      timer = setTimeout(tick, EVERY);
+    }
+    document.addEventListener("visibilitychange", tick);
+    tick();
+  })();
+</script>
 {{/if}}
