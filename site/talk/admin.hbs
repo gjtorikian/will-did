@@ -128,6 +128,9 @@
       let rec = null, listening = false;
       function hear(e) {
         const texts = [];
+        // The recognizer can retract interim results, shortening the list.
+        // Drop their counts too, even when resultIndex is now at the end.
+        session.length = e.results.length;
         for (let i = 0; i < e.results.length; i++) {
           const text = e.results[i][0].transcript;
           if (i >= e.resultIndex) session[i] = (text.match(pattern) || []).length;
