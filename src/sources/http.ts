@@ -26,7 +26,7 @@ function retryAfterMs(h: string | null): number | null {
 
 export async function getJSON<T>(
   url: string,
-  { retries = 6, timeoutMs = 20_000 } = {},
+  { retries = 6, timeoutMs = 20_000, onRateLimited }: { retries?: number; timeoutMs?: number; onRateLimited?: () => void } = {},
 ): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     let wait: number | null = null;
@@ -35,7 +35,10 @@ export async function getJSON<T>(
         headers: HEADERS,
         signal: AbortSignal.timeout(timeoutMs),
       });
-      if (res.status === 429) wait = retryAfterMs(res.headers.get("retry-after"));
+      if (res.status === 429) {
+        wait = retryAfterMs(res.headers.get("retry-after"));
+        onRateLimited?.();
+      }
       if (res.status === 429 || res.status >= 500) throw new HttpError(res.status, url, true);
       if (!res.ok) throw new HttpError(res.status, url, false);
       return (await res.json()) as T;
@@ -50,14 +53,37 @@ export async function getJSON<T>(
   }
 }
 
-/** Space calls at least `gapMs` apart, across every caller sharing the gate. */
-export function throttle(gapMs: number): () => Promise<void> {
+/**
+ * Paces requests to one host, finding its tolerable rate as it goes. Calls are
+ * spaced at least `gap` apart across every caller sharing the pacer. A 429
+ * doubles the gap (up to `maxMs`); each success eases it back 5% toward
+ * `minMs`. So it runs fast on a quiet IP and slows itself on a busy one, like a
+ * GitHub runner shared with other jobs hitting the same API.
+ */
+export function pacer(minMs: number, maxMs = 5_000) {
+  let gap = minMs;
   let next = 0;
-  return async () => {
-    const now = Date.now();
-    const at = Math.max(now, next);
-    next = at + gapMs;
-    if (at > now) await sleep(at - now);
+  const stats = { requests: 0, rateLimited: 0, maxGap: minMs };
+  return {
+    stats,
+    gap: () => Math.round(gap),
+    /** Fetch JSON through the pacer. */
+    async get<T>(url: string): Promise<T> {
+      const now = Date.now();
+      const at = Math.max(now, next);
+      next = at + gap;
+      if (at > now) await sleep(at - now);
+      stats.requests++;
+      const out = await getJSON<T>(url, {
+        onRateLimited: () => {
+          stats.rateLimited++;
+          gap = Math.min(maxMs, gap * 2);
+          stats.maxGap = Math.max(stats.maxGap, gap);
+        },
+      });
+      gap = Math.max(minMs, gap * 0.95);
+      return out;
+    },
   };
 }
 

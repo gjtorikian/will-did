@@ -1,4 +1,4 @@
-import { getJSON, throttle, toISO, HttpError } from "./http.js";
+import { pacer, toISO, HttpError } from "./http.js";
 import type { Fetched, Result } from "../types.js";
 
 const BASE = "https://gamma-api.polymarket.com";
@@ -11,14 +11,13 @@ const MAX_PAGES = Number(process.env.PM_MAX_PAGES ?? 5000);
 // own. Gamma silently ignores exclude_tag_id, so listings ask for tags inline
 // (include_tag=true) and sports markets are filtered here.
 const SPORTS_TAG = "1";
-// Gamma rate-limits hard from shared IPs like GitHub's runners. One gate for
-// every request this process makes, so the open and closed listings (and
-// rechecks) can't burst past it together.
-const gate = throttle(Number(process.env.PM_GAP_MS ?? 1000));
-const get = async <T>(url: string) => {
-  await gate();
-  return getJSON<T>(url);
-};
+// One pacer for every request this process makes, so the listings and rechecks
+// can't burst past it together. Gamma documents 300 requests per 10 s on
+// /markets, per IP; a GitHub runner shares its IP with other jobs, so the
+// usable rate varies. The pacer starts at a third of the documented limit and
+// backs off on 429s.
+export const pace = pacer(Number(process.env.PM_GAP_MS ?? 100));
+const get = <T>(url: string) => pace.get<T>(url);
 
 /** Only the Gamma fields we touch. Everything else is ignored. */
 interface GammaMarket {
@@ -102,7 +101,9 @@ async function fetchKeyset(params: string): Promise<GammaMarket[]> {
 /** A listing as Fetched rows, sports already filtered out. */
 async function listing(params: string): Promise<Fetched[]> {
   const out: Fetched[] = [];
-  for (const m of await fetchKeyset(`${params}&include_tag=true`)) {
+  // volume_num_min=1: markets nobody traded are excluded anyway (excluded() in
+  // capture/run.ts), and they're about four in five of the open listing.
+  for (const m of await fetchKeyset(`${params}&volume_num_min=1&include_tag=true`)) {
     const f = toFetched(m);
     if (f.question && !f.sports) out.push(f);
   }

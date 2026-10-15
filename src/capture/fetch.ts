@@ -21,6 +21,11 @@ run({
   answer: (process.env.ANSWER as "yesno" | "did" | undefined) ?? "yesno",
 })
   .then((report) => {
+    for (const [name, src] of Object.entries({ polymarket, kalshi }) as Array<[Source, typeof polymarket | typeof kalshi]>) {
+      if (!adapters[name]) continue;
+      const s = src.pace.stats;
+      console.log(`${name}: ${s.requests} requests · ${s.rateLimited} rate-limited · gap peaked at ${s.maxGap} ms, ended at ${src.pace.gap()} ms`);
+    }
     // Every source failed: exit non-zero so the workflow stops before render
     // and deploy, and the live site keeps its last good version rather than
     // publishing an empty today. One source of several failing carries on.

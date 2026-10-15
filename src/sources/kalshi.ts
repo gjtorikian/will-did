@@ -1,4 +1,4 @@
-import { getJSON, throttle, toISO, HttpError } from "./http.js";
+import { pacer, toISO, HttpError } from "./http.js";
 import type { Fetched, Result } from "../types.js";
 
 const BASE = "https://api.elections.kalshi.com/trade-api/v2";
@@ -6,13 +6,10 @@ const PAGE = 1000; // Kalshi's maximum
 // A safety stop that throws rather than truncating. Kalshi settles ~90,000
 // non-parlay markets a day, so a week-long backfill window needs ~600 pages.
 const MAX_PAGES = Number(process.env.KS_MAX_PAGES ?? 2000);
-// Kalshi rate-limits reads; one gate for every request this process makes, so
-// the open and closed listings (and rechecks) can't burst past it together.
-const gate = throttle(Number(process.env.KS_GAP_MS ?? 200));
-const get = async <T>(url: string) => {
-  await gate();
-  return getJSON<T>(url);
-};
+// One pacer for every request this process makes, so the listings and rechecks
+// can't burst past it together. Kalshi rate-limits reads.
+export const pace = pacer(Number(process.env.KS_GAP_MS ?? 200));
+const get = <T>(url: string) => pace.get<T>(url);
 
 interface KalshiMarket {
   ticker: string;
