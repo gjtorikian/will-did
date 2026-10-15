@@ -1,0 +1,110 @@
+/* The talk: a market about tonight. The vote page is a phone; the admin page
+   is a projector. Both borrow the site's type and its turning animation, and
+   add only what a live market needs: two buttons and a count. */
+/* Yes and no are the one place on the site with a colour: a deep green and a
+   brick red in the light, lifted so they read on black in the dark. */
+:root { --yes: #1f7a4d; --no: #c23b2f; }
+@media (prefers-color-scheme: dark) {
+  :root { --yes: #6cd39a; --no: #f2897a; }
+}
+.talk main { padding-top: calc(1.8rem + env(safe-area-inset-top, 0px)); }
+.talk h1 { font: inherit; color: var(--faint); margin: 0 0 0.3rem; }
+.talk .intro { margin: 0 0 2.4rem; }
+.talk .sentence { font-size: 1.45em; line-height: 1.35; margin: 0 0 1.8rem; }
+.talk .line { margin: 0; }
+.talk s.was {
+  display: block;
+  color: var(--faint);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+.talk .turning s.was { animation: strike 1.4s ease-out 0.3s both; }
+.talk .turning .line { animation: settle 1.2s ease-out 1.5s both; }
+@media (prefers-reduced-motion: reduce) {
+  .talk .turning s.was, .talk .turning .line { animation: none; }
+}
+.talk button {
+  font: inherit;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  padding: 0.5em 1.2em;
+  cursor: pointer;
+}
+.talk button:hover, .talk button:focus-visible { text-decoration: underline; }
+.talk button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.talk button:disabled { color: var(--faint); border-color: var(--rule); cursor: default; text-decoration: none; }
+.talk button[aria-pressed="true"]:disabled { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.talk .status { color: var(--faint); font-size: 0.85em; }
+
+/* the vote page */
+.choices { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 0 0 1.6rem; }
+.choices button { font-size: 1.3em; padding: 0.9em 0; }
+.choices [data-choice="yes"] { --tint: var(--yes); }
+.choices [data-choice="no"] { --tint: var(--no); }
+.choices button { color: var(--tint); border-color: var(--tint); }
+.choices button[aria-pressed="true"], .choices button[aria-pressed="true"]:disabled { background: var(--tint); border-color: var(--tint); color: var(--paper); }
+.choices button:disabled:not([aria-pressed="true"]) { color: var(--faint); border-color: var(--rule); }
+.vote .tally, .vote .heard, .vote .you { margin: 0 0 0.5em; color: var(--faint); font-variant-numeric: tabular-nums; }
+.vote .tally [data-yes] { color: var(--yes); }
+.vote .tally [data-no] { color: var(--no); }
+.vote .you { margin-top: 1.4em; font-style: italic; }
+
+/* the admin page */
+.talk [hidden] { display: none; }
+.admin {
+  max-width: none;
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(16rem, 26vw) minmax(0, 1fr);
+  gap: 2rem 4rem;
+  align-content: start;
+  padding: 3rem 4vw 2rem;
+}
+.scan img { display: block; width: 100%; height: auto; aspect-ratio: 1; box-sizing: border-box; padding: 6%; background: #fff; }
+.scan img:not([src]) { visibility: hidden; }
+.board .sentence { font-size: 2em; line-height: 1.3; margin-bottom: 2rem; }
+.votes {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1.4rem;
+  margin-bottom: 2.6rem;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+.votes .yes { color: var(--yes); }
+.votes .no { color: var(--no); }
+.votes .n { font-size: 2.4em; line-height: 1; margin-right: 0.3ch; }
+.bar { position: relative; height: 2px; background: var(--rule); }
+.bar span { position: absolute; top: 0; bottom: 0; width: 0; transition: width 0.6s ease; }
+.bar .yes { left: 0; background: var(--yes); }
+.bar .no { right: 0; background: var(--no); }
+/* Revealed when the market settles, after the question has turned: first the
+   count, then the verdict. */
+.counter { margin-bottom: 2.4rem; }
+.count { margin: 0; font-size: 9em; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.count-label { margin: 0.5rem 0 0; color: var(--faint); }
+.verdict { margin: 1.6rem 0 0; font-size: 2.6em; line-height: 1.1; letter-spacing: 0.06em; }
+.verdict[data-when="yes"] { color: var(--yes); }
+.verdict[data-when="no"] { color: var(--no); }
+.transcript { margin: 1.4rem 0 0; color: var(--faint); font-size: 0.85em; line-height: 1.5; max-height: 4.5em; overflow: hidden; }
+.transcript mark { background: none; color: var(--ink); text-decoration: underline; text-underline-offset: 0.18em; }
+.count, .count-label { animation: settle 1.2s ease-out 2.4s both; }
+.verdict, .transcript { animation: settle 1.2s ease-out 3.6s both; }
+@media (prefers-reduced-motion: reduce) {
+  .count, .count-label, .verdict, .transcript { animation: none; }
+}
+.listen { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 1.2rem; }
+.meter { position: relative; width: 8rem; height: 2px; background: var(--rule); }
+.meter span { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--ink); }
+.settle { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
+.talk button.quiet { color: var(--faint); border-color: var(--rule); }
+@media (max-width: 719px) {
+  .admin { grid-template-columns: 1fr; gap: 2rem; padding: 1.5rem 1rem; }
+  .scan { max-width: 16rem; }
+  .board .sentence { font-size: 1.4em; }
+  .count { font-size: 5em; }
+  .verdict { font-size: 1.8em; }
+}

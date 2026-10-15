@@ -21,7 +21,7 @@ export async function loadMeta(siteDir: string): Promise<Meta> {
 export type Templates = Awaited<ReturnType<typeof templates>>;
 
 /** "did" / "did not" wrapped in `open` and `close`; everything else escaped. */
-function markDid(line: string, open: string, close: string): string {
+export function markDid(line: string, open: string, close: string): string {
   const esc = Handlebars.escapeExpression;
   let out = "";
   let last = 0;

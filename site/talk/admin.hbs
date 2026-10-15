@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{meta.title}} — tonight, admin</title>
+  <meta name="robots" content="noindex">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="talk.css">
+</head>
+<body class="talk">
+  <main id="market" class="admin" data-key="{{key}}" data-word="{{cfg.word}}" data-public-url="{{publicUrl}}">
+    <aside class="scan">
+      <img id="qr" alt="QR code for the vote page" width="400" height="400">
+    </aside>
+
+    <section class="board">
+      <h1>{{meta.title}}</h1>
+      <div class="sentence{{#if tally.resolved}} turning{{/if}}" id="sentence">
+        {{#if tally.resolved}}<s class="was">{{tally.question}}</s>{{/if}}
+        <p class="line" id="line">{{{tally.lineHtml}}}</p>
+      </div>
+
+      <div class="votes" aria-live="polite">
+        <div class="side yes"><span class="n" data-yes>{{tally.yes}}</span>yes</div>
+        <div class="bar" aria-hidden="true"><span class="yes" id="bar-yes"></span><span class="no" id="bar-no"></span></div>
+        <div class="side no"><span class="n" data-no>{{tally.no}}</span>no</div>
+      </div>
+
+      {{!-- The count stays out of sight until the market settles. --}}
+      <div class="counter" id="counter"{{#unless tally.resolved}} hidden{{/unless}}>
+        <p class="count" id="count">{{#if tally.resolved}}{{heard}}{{/if}}</p>
+        <p class="count-label">times “{{cfg.word}}” was said</p>
+        <p class="verdict" data-when="yes"{{#unless (eq tally.resolved "yes")}} hidden{{/unless}}>THE YESES WON</p>
+        <p class="verdict" data-when="no"{{#unless (eq tally.resolved "no")}} hidden{{/unless}}>THE NOS HAVE IT</p>
+        <p class="transcript" id="transcript"></p>
+      </div>
+
+      <div class="listen" id="listening"{{#if tally.resolved}} hidden{{/if}}>
+        <button type="button" id="listen" aria-pressed="false">Listen</button>
+        <span class="meter" aria-hidden="true"><span id="level"></span></span>
+        <span class="status" id="status">Not listening.</span>
+      </div>
+      <div class="settle">
+        <button type="button" id="settle"{{#if tally.resolved}} hidden{{/if}}>Settle</button>
+        <button type="button" id="reopen" class="quiet"{{#unless tally.resolved}} hidden{{/unless}}>Reopen</button>
+      </div>
+    </section>
+  </main>
+  <script type="application/json" id="initial">{{{initial}}}</script>
+  <script>
+    (() => {
+      const $ = (s) => document.querySelector(s);
+      const root = $("#market");
+      const key = root.dataset.key;
+      // Any token that starts with the word, in any case: "word", "words" and
+      // "wording" all count, since the recognizer hears a run of the word as
+      // any of them; "password" and "keyword" don't.
+      const pattern = new RegExp("\\b" + root.dataset.word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\w*", "gi");
+      const initial = JSON.parse($("#initial").textContent);
+      const sum = (a) => a.reduce((x, y) => x + y, 0);
+      const esc = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
+      const status = (s) => { $("#status").textContent = s; };
+
+      // The count is kept here and reported to the server as it changes, but
+      // shown nowhere until the market settles. It is what the server had
+      // when this page loaded (so a reload keeps it), plus finished
+      // recognition runs, plus the run in progress.
+      let base = initial.heard, settled = 0, session = [], reported = initial.heard;
+      const total = () => base + settled + sum(session);
+
+      async function post(path, payload) {
+        const r = await fetch(`${path}?key=${encodeURIComponent(key)}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+        if (r.ok) render(await r.json());
+        else status(`${path}: ${r.status}`);
+      }
+      function report() {
+        const n = total();
+        if (n !== reported) {
+          reported = n;
+          post("heard", { heard: n });
+        }
+      }
+
+      function render(t) {
+        $("[data-yes]").textContent = t.yes;
+        $("[data-no]").textContent = t.no;
+        const all = t.yes + t.no;
+        $("#bar-yes").style.width = all ? `${(100 * t.yes) / all}%` : "0%";
+        $("#bar-no").style.width = all ? `${(100 * t.no) / all}%` : "0%";
+        $("#line").innerHTML = t.lineHtml;
+        const sentence = $("#sentence"), was = sentence.querySelector("s");
+        if (t.resolved && !was) {
+          const s = document.createElement("s");
+          s.className = "was";
+          s.textContent = t.question;
+          sentence.prepend(s);
+          sentence.classList.add("turning");
+        } else if (!t.resolved && was) {
+          was.remove();
+          sentence.classList.remove("turning");
+        }
+        // Settled: the count and the verdict come out; the controls go.
+        const done = !!t.resolved;
+        $("#count").textContent = done ? t.heard : "";
+        for (const v of document.querySelectorAll(".verdict")) v.hidden = v.dataset.when !== t.resolved;
+        $("#counter").hidden = !done;
+        $("#listening").hidden = done;
+        $("#settle").hidden = done;
+        $("#reopen").hidden = !done;
+      }
+
+      // Settle by the count: the server decides which way and reveals the
+      // count to every phone; this page shows the verdict.
+      $("#settle").onclick = () => {
+        stop();
+        post("settle", { heard: total() });
+      };
+      $("#reopen").onclick = () => post("reopen", {});
+
+      // Speech recognition (the Web Speech API; Chrome's recognizer). Results
+      // arrive as a growing list, and an entry's transcript firms up over a
+      // second or two; each is re-counted every time it changes, so the count
+      // moves as soon as the word is heard and corrects itself as the
+      // recognizer makes up its mind. A run ends on its own now and then;
+      // its count is kept and a new run starts.
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      let rec = null, listening = false;
+      function hear(e) {
+        const texts = [];
+        for (let i = 0; i < e.results.length; i++) {
+          const text = e.results[i][0].transcript;
+          if (i >= e.resultIndex) session[i] = (text.match(pattern) || []).length;
+          texts.push(text);
+        }
+        $("#transcript").innerHTML = esc(texts.join(" ").trim().slice(-280)).replace(pattern, "<mark>$&</mark>");
+        report();
+      }
+      function start() {
+        if (!SR) return status("No speech recognition in this browser. Use Chrome.");
+        rec = new SR();
+        rec.continuous = true;
+        rec.interimResults = true;
+        rec.lang = "en-US";
+        rec.maxAlternatives = 1;
+        rec.onstart = () => status("Listening.");
+        rec.onresult = hear;
+        rec.onerror = (e) => {
+          if (e.error === "not-allowed" || e.error === "service-not-allowed") { listening = false; status("Microphone blocked."); }
+          else status(`Recognition: ${e.error}. Resuming.`);
+        };
+        rec.onend = () => {
+          settled += sum(session);
+          session = [];
+          if (listening) { try { rec.start(); } catch {} }
+          else status("Not listening.");
+        };
+        listening = true;
+        rec.start();
+        $("#listen").textContent = "Stop";
+        $("#listen").setAttribute("aria-pressed", "true");
+        meter();
+      }
+      function stop() {
+        listening = false;
+        if (rec) rec.stop();
+        $("#listen").textContent = "Listen";
+        $("#listen").setAttribute("aria-pressed", "false");
+      }
+      $("#listen").onclick = () => (listening ? stop() : start());
+
+      // A level meter from the Web Audio API, so the room can see the mic is live.
+      async function meter() {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          const audio = new (window.AudioContext || window.webkitAudioContext)();
+          const analyser = audio.createAnalyser();
+          analyser.fftSize = 512;
+          audio.createMediaStreamSource(stream).connect(analyser);
+          const buf = new Uint8Array(analyser.fftSize);
+          const tick = () => {
+            if (!listening) {
+              stream.getTracks().forEach((t) => t.stop());
+              audio.close();
+              $("#level").style.width = "0";
+              return;
+            }
+            analyser.getByteTimeDomainData(buf);
+            let peak = 0;
+            for (const v of buf) peak = Math.max(peak, Math.abs(v - 128));
+            $("#level").style.width = `${Math.min(100, (peak / 128) * 250)}%`;
+            requestAnimationFrame(tick);
+          };
+          tick();
+        } catch {
+          /* no meter; recognition still works */
+        }
+      }
+
+      // The QR code points at the public address: the server's tunnel if it
+      // has one, else wherever this page was loaded from.
+      let publicUrl = root.dataset.publicUrl;
+      function qr() {
+        const u = publicUrl || location.origin + "/";
+        $("#qr").src = `qr.svg?key=${encodeURIComponent(key)}&url=${encodeURIComponent(u)}`;
+      }
+      qr();
+
+      render(initial);
+      const events = new EventSource("events");
+      events.onmessage = (e) => {
+        const t = JSON.parse(e.data);
+        if (t.run !== initial.run) return location.reload(); // the server was restarted; start over with it
+        render(t);
+      };
+      // the server's tunnel came up after this page loaded
+      events.addEventListener("tunnel", (e) => { publicUrl = JSON.parse(e.data).url; qr(); });
+    })();
+  </script>
+</body>
+</html>

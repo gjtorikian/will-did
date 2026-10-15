@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{{meta.title}} — tonight</title>
+  <meta name="robots" content="noindex">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="talk.css">
+</head>
+<body class="talk">
+  <main id="market" class="vote">
+    <header class="talk-header">
+      <h1>{{#if site}}<a href="{{site}}">{{meta.title}}</a>{{else}}{{meta.title}}{{/if}}</h1>
+    </header>
+    <div class="sentence{{#if tally.resolved}} turning{{/if}}" id="sentence">
+      {{#if tally.resolved}}<s class="was">{{tally.question}}</s>{{/if}}
+      <p class="line" id="line">{{{tally.lineHtml}}}</p>
+    </div>
+    <div class="choices" id="choices" role="group" aria-label="Your answer">
+      <button type="button" data-choice="yes" aria-pressed="false"{{#if tally.resolved}} disabled{{/if}}>Yes</button>
+      <button type="button" data-choice="no" aria-pressed="false"{{#if tally.resolved}} disabled{{/if}}>No</button>
+    </div>
+    <p class="tally" id="tally" aria-live="polite"><span data-yes>{{tally.yes}}</span> yes · <span data-no>{{tally.no}}</span> no</p>
+    <p class="heard" id="heard" aria-live="polite"></p>
+    <p class="you" id="you" hidden></p>
+  </main>
+  <script type="application/json" id="initial">{{{initial}}}</script>
+  <script>
+    (() => {
+      const $ = (s) => document.querySelector(s);
+      const store = {
+        get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+        set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+        remove(k) { try { localStorage.removeItem(k); } catch {} },
+      };
+      // One answer per phone; it can change until the market settles.
+      let voter = store.get("talk.voter");
+      if (!voter) {
+        voter = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)).replace(/[^\w-]/g, "");
+        store.set("talk.voter", voter);
+      }
+      let mine = store.get("talk.vote");
+      // The server starts each run with no votes, so a vote remembered from
+      // an earlier run is forgotten and this phone is asked again.
+      let run = store.get("talk.run");
+      function sync(t) {
+        if (t.run === run) return;
+        run = t.run;
+        mine = null;
+        store.set("talk.run", run);
+        store.remove("talk.vote");
+      }
+      const times = (n) => (n === 1 ? "once" : `${n} times`);
+
+      function render(t) {
+        sync(t);
+        $("[data-yes]").textContent = t.yes;
+        $("[data-no]").textContent = t.no;
+        $("#line").innerHTML = t.lineHtml;
+        const sentence = $("#sentence"), was = sentence.querySelector("s");
+        if (t.resolved && !was) {
+          const s = document.createElement("s");
+          s.className = "was";
+          s.textContent = t.question;
+          sentence.prepend(s);
+          sentence.classList.add("turning");
+        } else if (!t.resolved && was) {
+          was.remove();
+          sentence.classList.remove("turning");
+        }
+        $("#heard").textContent = t.resolved ? `Heard ${times(t.heard)}.` : "";
+        for (const b of document.querySelectorAll("#choices button")) {
+          b.setAttribute("aria-pressed", String(b.dataset.choice === mine));
+          b.disabled = !!t.resolved;
+        }
+        const you = $("#you");
+        you.hidden = !mine;
+      }
+
+      let casting = false;
+      async function cast(choice) {
+        if (casting) return;
+        casting = true;
+        try {
+          const r = await fetch("vote", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ voter, choice }) });
+          if (r.ok) {
+            mine = choice;
+            store.set("talk.vote", choice);
+            render(await r.json());
+          } else if (r.status === 409) {
+            // settled since the page loaded
+            render(await (await fetch("tally")).json());
+          }
+        } finally {
+          casting = false;
+        }
+      }
+      $("#choices").addEventListener("click", (e) => {
+        const b = e.target.closest("button[data-choice]");
+        if (b && !b.disabled) cast(b.dataset.choice);
+      });
+
+      render(JSON.parse($("#initial").textContent));
+      new EventSource("events").onmessage = (e) => render(JSON.parse(e.data));
+    })();
+  </script>
+</body>
+</html>

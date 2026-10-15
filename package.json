@@ -12,6 +12,7 @@
     "fetch": "node dist/capture/fetch.js",
     "test": "node --test \"dist/**/*.test.js\"",
     "serve": "python3 -m http.server 8000 -d public",
+    "talk": "node dist/talk/server.js",
     "check": "tsc -p tsconfig.json --noEmit",
     "rerender": "node dist/maintenance/rerender.js",
     "repair-archive": "node dist/maintenance/repair.js",
@@ -22,7 +23,9 @@
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.2",
     "@types/node": "^22.10.0",
+    "@types/qrcode": "^1.5.6",
     "handlebars": "^4.7.10",
+    "qrcode": "^1.5.4",
     "typescript": "^5.6.0"
   }
 }
