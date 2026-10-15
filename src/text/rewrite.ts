@@ -345,6 +345,9 @@ function findVerb(tokens: string[]): number {
     // launch…", "Humanity's Last Exam".
     if (/^\p{Lu}/u.test(raw)) continue;
     const v = clean(tokens[i]);
+    // A lowercase particle between capitalised words is part of a name, not
+    // a verb: "Vital do Rêgo", "van der Sar", "bin Salman".
+    if (PARTICLES.has(v) && inName(tokens, i)) continue;
     if (!VERBS.has(v)) continue;
     const prevRaw = i > 0 ? tokens[i - 1] : "";
     const prev = clean(prevRaw);
@@ -358,6 +361,21 @@ function findVerb(tokens: string[]): number {
     return i;
   }
   return -1;
+}
+
+/** Surname particles, Portuguese and Spanish first since Polymarket's election
+ *  markets are full of them; only "do" is also an English verb, but the rule
+ *  reads the same for all of them. */
+const PARTICLES = new Set(["do", "da", "dos", "das", "de", "del", "della", "di", "du", "van", "von", "der", "den", "bin", "ibn", "al", "el", "la", "le"]);
+
+/** Token `i` is a particle; is it inside a name? Look past neighbouring
+ *  particles ("van der") to a capitalised word on each side. */
+function inName(tokens: string[], i: number): boolean {
+  let a = i - 1;
+  while (a >= 0 && PARTICLES.has(clean(tokens[a]))) a--;
+  let b = i + 1;
+  while (b < tokens.length && PARTICLES.has(clean(tokens[b]))) b++;
+  return a >= 0 && b < tokens.length && /^\p{Lu}/u.test(tokens[a]) && /^\p{Lu}/u.test(tokens[b]);
 }
 
 const NOUN_MODIFIERS = new Set(["highest", "lowest", "biggest", "smallest", "average", "total", "maximum", "minimum", "longest", "shortest"]);

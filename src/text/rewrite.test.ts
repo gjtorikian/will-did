@@ -124,8 +124,11 @@ test("verbs the archive fell back on now conjugate", () => {
   for (const [q, r, expected] of cases) assert.equal(rewrite(q, r), expected, q);
 });
 
-test("names aren't verbs: capitalised words, an ʻokina, a parenthesised abbreviation", () => {
+test("names aren't verbs: capitalised words, an ʻokina, a parenthesised abbreviation, a particle", () => {
   const cases: Array<[string, string]> = [
+    ["Will Veneziano Vital do Rêgo win the Governor of Paraíba election?", "Veneziano Vital do Rêgo did not win the Governor of Paraíba election."],
+    ["Will Edwin van der Sar win the Ballon d'Or?", "Edwin van der Sar did not win the Ballon d'Or."],
+    ["Will Mohammed bin Salman visit Washington by December?", "Mohammed bin Salman did not visit Washington by December."],
     ["Will Delta Air Lines say \"Fuel\" during earnings call?", 'Delta Air Lines did not say "Fuel" during earnings call.'],
     ["Will Ashley Trail win Big Brother season twenty-eight?", "Ashley Trail did not win Big Brother season twenty-eight."],
     ["Will RISE launch a token by September thirtieth?", "RISE did not launch a token by September thirtieth."],
