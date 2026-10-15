@@ -82,12 +82,12 @@ Every market is turned into a line by rules:
 flowchart TD
     Q["Ethereum above $4,000 on October 10?"]
     O["phrase(): strip markdown, apply overrides.json patterns"]
-    H["humanize(): spell out every numeral"]
+    H["humanize(): spell out words"]
     W["willify(): coerce into a Will-sentence"]
     X["no shape fits:<br/>dropped and counted"]
     R["rewrite()"]
-    L1["declarative<br/>Ethereum did end up above four thousand dollars on October tenth."]
-    L2["question form, also the fallback<br/>Was Ethereum above four thousand dollars on October tenth? Yes."]
+    L1["declarative:<br/>Ethereum did end up above four thousand dollars on October tenth."]
+    L2["question form:<br/>Was Ethereum above four thousand dollars on October tenth? Yes."]
     Q --> O --> H --> W --> R
     W -.-> X
     R --> L1
