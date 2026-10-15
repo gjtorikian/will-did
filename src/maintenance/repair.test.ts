@@ -55,8 +55,8 @@ test("archive repair dry run leaves files intact and a second apply is a no-op",
   await writeFile(join(dir, "days", `${poem.day}.json`), JSON.stringify(day));
   // three lines change: two grammar corrections (one restoring an answer), and
   // every line gains its family, which this poem was archived without
-  assert.deepEqual(await repairArchive(dir, archive, true), { days: 1, changed: 3, restored: 1 });
+  assert.deepEqual(await repairArchive(dir, archive, true), { days: 1, changed: 3, restored: 1, thinned: 0 });
   assert.equal(await readFile(path, "utf8"), JSON.stringify(poem));
-  assert.deepEqual(await repairArchive(dir, archive), { days: 1, changed: 3, restored: 1 });
-  assert.deepEqual(await repairArchive(dir, archive), { days: 0, changed: 0, restored: 0 });
+  assert.deepEqual(await repairArchive(dir, archive), { days: 1, changed: 3, restored: 1, thinned: 0 });
+  assert.deepEqual(await repairArchive(dir, archive), { days: 0, changed: 0, restored: 0, thinned: 0 });
 });

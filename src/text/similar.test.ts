@@ -120,3 +120,25 @@ test("one line per family, stable, in the original order", () => {
   assert.deepEqual(onePerFamily([...rows].reverse()).map((r) => r.id).sort(), once.map((r) => r.id).sort(), "the pick doesn't depend on order");
   assert.equal(onePerFamily(rows, (r) => r.id).length, 4, "scope splits families");
 });
+
+test("a ladder's rungs may reach, dip to or hit their level, on a day or over a week", () => {
+  assert.equal(family("Will XRP reach $1.65 on October 4?"), family("Will XRP dip to $1.45 on October 4?"));
+  assert.equal(
+    family("Will MrBeast hit 521 million subscribers by October 31?"),
+    family("Will MrBeast reach 500 million subscribers by October 31?"),
+  );
+  // a span across a month is one date, as "October 5-11" already is, and "Oct" is "October"
+  assert.equal(family("Will Bitcoin dip to $82,000 September 28-October 4?"), family("Will Bitcoin reach $84,000 Oct 5 – Oct 11?"));
+  assert.equal(family("Will Bitcoin reach $84,000 October 5-11?"), family("Will Bitcoin reach $84,000 Oct 5 – Oct 11?"));
+  assert.equal(
+    family("Bitcoin did not dip to eighty thousand dollars September twenty-eighth to October fourth."),
+    family("Bitcoin did reach ninety thousand dollars October fifth to eleventh."),
+  );
+  const rows = [
+    { id: "a", question: "Will XRP reach $1.65 on October 4?", line: "XRP did not reach one point six five dollars on October fourth." },
+    { id: "b", question: "Will XRP dip to $1.10 September 28-October 4?", line: "XRP did not dip to one point one dollars September twenty-eighth to October fourth." },
+    { id: "c", question: "Will Solana reach $2.20 September 28-October 4?", line: "Solana did not reach two point two dollars September twenty-eighth to October fourth." },
+    { id: "d", question: "Will Bitcoin dip to $82,000 on October 4?", line: "Bitcoin did dip to eighty-two thousand dollars on October fourth." },
+  ];
+  assert.equal(onePerFamily(rows).length, 1, "the daily and weekly ladders, whichever way they are phrased, are one family");
+});

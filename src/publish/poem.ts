@@ -84,6 +84,30 @@ export function familiesOf(d: Day): { kept: Set<Market>; stats: Map<string, Fami
   return { kept, stats };
 }
 
+/** A sealed poem thinned again under the current grouping rules. Lines that
+ *  now fall into one family keep the member whose id hashes lowest, as compose
+ *  would have chosen (the lowest of a union is the lowest of one of its parts),
+ *  and their families are added together. A line archived before families
+ *  were counted stands for itself. */
+export function thin(poem: Poem): Poem {
+  const lines = families(poem.lines)
+    .map(({ rep, members }) => members.length === 1 ? rep : {
+      ...rep,
+      family: {
+        size: members.reduce((n, m) => n + (m.family?.size ?? 1), 0),
+        volume: members.reduce((n, m) => n + (m.family?.volume ?? 0), 0),
+      },
+    })
+    .sort((a, b) => a.at.localeCompare(b.at));
+  const shown = lines.filter((l) => l.asked).length;
+  return {
+    ...poem,
+    asked: { ...poem.asked, shown },
+    answered: { ...poem.answered, shown: lines.length - shown },
+    lines,
+  };
+}
+
 /** Each market once, at its latest volume. Polymarket only, since Kalshi
  *  counts contracts, not dollars. */
 function volumeOf(markets: Market[]): number {

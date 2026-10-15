@@ -9,7 +9,8 @@
  *
  *   1. Mask. Numbers (spelled out, ordinals, ranges, clock times) and names
  *      (runs of capitalised words) become placeholders; comparisons ("above",
- *      "or higher") are dropped. Lines that are then identical are one family.
+ *      "or higher") are dropped, and a ladder's verbs ("reach", "dip to") read
+ *      as one. Lines that are then identical are one family.
  *   2. Join. Masked templates within a few words of each other — a word-level
  *      edit distance of at most a third of their real (unmasked) words, three
  *      at most — are joined too, transitively. Only templates that share their first or last
@@ -44,10 +45,26 @@ const MARKS = /[<>≤≥]?#(?:[\s\-–]*(?:to\s+)?[<>≤≥]?#)*/g;
 // nothing without its number, which is masked anyway, so it's dropped.
 const COMPARE =
   /\b(?:(?:less|more|greater|fewer|higher|lower) than|above|below|under|over|between|at (?:least|most)|or (?:higher|lower|above|below|more|less|fewer|greater))\b/gi;
+// A rung may also be phrased as a verb that meets its level: "reach $X", "dip
+// to $X", "hit X". Like a comparison, the direction means nothing without its
+// number; unlike one, the verb carries the sentence, so the rungs are read as
+// the same verb rather than none.
+const THRESHOLD = /\b(?:reach|hit|dip to)\b/gi;
 // Capitalised words that open a sentence without naming anything.
 const OPENERS = new Set(["Will", "Did", "Was", "Were", "The", "A", "An", "It", "There", "No", "Yes", "Neither", "Either"]);
 // Month names are capitalised but belong to the date, which is already masked.
-const MONTHS = /^(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)$/;
+// An abbreviation ("Oct", "Sept") is the same word as the month it stands for.
+const MONTHS = new Map<string, string>();
+for (const m of ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]) {
+  MONTHS.set(m, m.toLowerCase());
+  MONTHS.set(m.slice(0, 3), m.toLowerCase());
+}
+MONTHS.set("Sept", "september");
+// A span that crosses a month ("September 28-October 4", "September
+// twenty-eighth to October fourth") is one date, as "October 5-11" already is
+// once its numbers are masked: the week is named by the month it ends in.
+const MONTH = [...MONTHS.keys()].join("|");
+const SPAN = new RegExp(`\\b(?:${MONTH})\\.?\\s*#\\s*(?:[-–]|to)\\s*((?:${MONTH})\\.?\\s*#)`, "gi");
 
 /** Words of a template that aren't placeholders. */
 function real(t: string[]): number {
@@ -59,8 +76,10 @@ function real(t: string[]): number {
  *  its names: with that little left, the names are what tell it apart. */
 export function template(line: string): string[] {
   const s = line
+    .replace(THRESHOLD, "reach")
     .replace(COMPARE, " ")
     .replace(RUN, " # ")
+    .replace(SPAN, "$1")
     .replace(/#\s+in the (?:morning|afternoon|evening)\b/gi, "#") // prose.ts's clock times; "noon" has none
     .replace(MARKS, " # ");
   const masked = tokens(s, true);
@@ -71,8 +90,9 @@ function tokens(s: string, maskNames: boolean): string[] {
   const out: string[] = [];
   for (const w of s.split(/[^\p{L}\p{N}#''&]+/u)) {
     if (!w) continue;
-    const name = maskNames && /^\p{Lu}/u.test(w) && !(out.length === 0 && OPENERS.has(w)) && !MONTHS.test(w);
-    const tok = name ? "N" : w.toLowerCase();
+    const month = MONTHS.get(w);
+    const name = maskNames && /^\p{Lu}/u.test(w) && !(out.length === 0 && OPENERS.has(w)) && !month;
+    const tok = month ?? (name ? "N" : w.toLowerCase());
     if ((tok === "N" || tok === "#") && out[out.length - 1] === tok) continue; // "New York City" is one name
     if (tok === "not" && out[out.length - 1] === "did") continue; // the outcome is a slot, not a difference
     out.push(tok);

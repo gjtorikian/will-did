@@ -135,13 +135,13 @@ Every record keeps the market's raw `question` beside its rendered `line`, so wo
 | Numbers, money, dates or units are spelled wrong                 | a rule in `src/text/prose.ts` (in the right group: order matters), or `src/text/numbers.ts` for the words themselves | `"$3.0T"` read as _three dollars.zero T_                                                                                                                                       |
 | A question shape isn't recognised at all                         | `SHAPES` in `src/text/rewrite.ts` (`willify`)                                                                        | _What will X say…: Word_                                                                                                                                                       |
 | A settled sentence is built wrong                                | `parseClause` / `conjugate` in `src/text/rewrite.ts`                                                                 | _it rain_ → _It did rain_                                                                                                                                                      |
-| Lines are grouped too much or too little                         | `src/text/similar.ts`                                                                                                | _Will "Whalefall" Opening Weekend Box Office be between $8m and $10m?_ was grouped with the unrelated _Will Avengers: Secret Wars be delayed?_, so no box-office line appeared |
+| Lines are grouped too much or too little                         | `src/text/similar.ts`, then `npm run repair-archive` to thin sealed days under the new rules                         | _Will "Whalefall" Opening Weekend Box Office be between $8m and $10m?_ was grouped with the unrelated _Will Avengers: Secret Wars be delayed?_, so no box-office line appeared |
 
 ## Handling duplicates
 
 Much of the corpus is one sentence stated many times with a slot changed: a ladder of gold prices, the same temperature question for forty cities.
 
-`src/text/similar.ts` groups these at render time: it masks numbers and names, drops comparisons (_above_, _or higher_) and the outcome (_did_ / _did not_), then joins templates within a few words of each other.
+`src/text/similar.ts` groups these at render time: it masks numbers, names and dates (a week that crosses a month, _September 28-October 4_, is one date), drops comparisons (_above_, _or higher_) and the outcome (_did_ / _did not_), reads a ladder's verbs (_reach_, _dip to_, _hit_) as one, then joins templates within a few words of each other.
 
 Rows are compared by their original question, so a Will line and a Did line from the same family group together, and a ladder that settled both ways is one family. Which member stands for its family is random but stable, so a sealed day reads the same on every visit.
 

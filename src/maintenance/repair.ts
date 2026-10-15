@@ -2,7 +2,9 @@
  * Keep the selected IDs, raw questions, source links, totals and volume.
  * Repair grammar and restore an answer only from that same day's record, and
  * fill in each line's family (size and volume) from that record when the line
- * was archived before families were counted.
+ * was archived before families were counted. Then thin the poem again under
+ * the current grouping rules: lines that have since become one family keep
+ * one, with their families added together.
  *
  * npm run repair-archive -- --dry
  * npm run repair-archive
@@ -12,7 +14,7 @@ import { join } from "node:path";
 import { loadOverrides } from "../text/overrides.js";
 import { openLine, resolvedLine, type Style } from "../capture/run.js";
 import { dayOf, readJSON } from "../capture/store.js";
-import { familiesOf, type Poem } from "../publish/poem.js";
+import { familiesOf, thin, type Poem } from "../publish/poem.js";
 import type { Day } from "../types.js";
 
 export function repairPoem(poem: Poem, day: Day | null, style: Style): Poem {
@@ -30,17 +32,12 @@ export function repairPoem(poem: Poem, day: Day | null, style: Style): Poem {
     else if (line.status === "yes" || line.status === "no") line.line = resolvedLine(line.id, line.question, line.status, style);
     return line;
   }).sort((a, b) => a.at.localeCompare(b.at));
-  const asked = lines.filter((l) => l.asked).length;
-  return {
-    ...poem, lines,
-    asked: { ...poem.asked, shown: asked },
-    answered: { ...poem.answered, shown: lines.length - asked },
-  };
+  return thin({ ...poem, lines });
 }
 
 export async function repairArchive(dataDir: string, archiveDir: string, dry = false) {
   const style: Style = { form: "declarative", answer: "yesno", overrides: await loadOverrides() };
-  const report = { days: 0, changed: 0, restored: 0 };
+  const report = { days: 0, changed: 0, restored: 0, thinned: 0 };
   for (const file of (await readdir(archiveDir)).sort()) {
     if (!/^\d{4}-\d{2}-\d{2}\.json$/.test(file)) continue;
     const path = join(archiveDir, file);
@@ -48,10 +45,12 @@ export async function repairArchive(dataDir: string, archiveDir: string, dry = f
     const repaired = repairPoem(poem, await readJSON<Day>(join(dataDir, "days", file)), style);
     const before = new Map(poem.lines.map((l) => [l.id, l]));
     const changed = repaired.lines.filter((l) => JSON.stringify(l) !== JSON.stringify(before.get(l.id))).length;
-    if (!changed) continue;
+    const thinned = poem.lines.length - repaired.lines.length;
+    if (!changed && !thinned) continue;
     report.days++;
     report.changed += changed;
-    report.restored += poem.asked.shown - repaired.asked.shown;
+    report.restored += repaired.lines.filter((l) => !l.asked && before.get(l.id)?.asked).length;
+    report.thinned += thinned;
     if (!dry) await writeFile(path, JSON.stringify(repaired));
   }
   return report;
@@ -60,6 +59,6 @@ export async function repairArchive(dataDir: string, archiveDir: string, dry = f
 if (process.argv[1]?.endsWith("repair.js")) {
   const dry = process.argv.includes("--dry");
   repairArchive(process.env.DATA_DIR ?? "data", process.env.ARCHIVE_DIR ?? "archive", dry)
-    .then((r) => console.log(`${r.days} days · ${r.changed} corrected lines · ${r.restored} restored answers${dry ? " (dry run)" : ""}`))
+    .then((r) => console.log(`${r.days} days · ${r.changed} corrected lines · ${r.restored} restored answers · ${r.thinned} thinned lines${dry ? " (dry run)" : ""}`))
     .catch((err) => { console.error(err); process.exitCode = 1; });
 }
