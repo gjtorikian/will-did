@@ -1,1 +1,4 @@
-{ "verbs": ["introduce", "last"] }
+{
+  "verbs": ["introduce", "last"],
+  "patterns": [{ "match": "^Will the Mamdani's ", "replace": "Will Mamdani's " }]
+}
