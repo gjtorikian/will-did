@@ -1,4 +1,4 @@
-/* Will / Did — near-duplicate lines, thinned when the site is rendered.
+/* Near-duplicate lines, thinned when the site is rendered.
  *
  * Much of the corpus is one sentence issued many times with a slot changed: a
  * ladder of gold prices, the same temperature question for forty cities, a
